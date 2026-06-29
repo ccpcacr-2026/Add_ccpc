@@ -1,0 +1,109 @@
+/* ═══════════════════════════════════════════════════════
+   CCPC Admission — UI Styles
+   ═══════════════════════════════════════════════════════ */
+
+/* ─── Toast animation ─── */
+@keyframes slideIn {
+  from { opacity:0; transform:translateX(20px); }
+  to   { opacity:1; transform:translateX(0); }
+}
+.animate-toast { animation: slideIn .25s ease-out; }
+
+/* ─── Form inputs / labels ─── */
+.finput {
+  display:block;
+  width:100%;
+  padding: 8px 14px;
+  background:#f8fafc;
+  border:1.5px solid #e2e8f0;
+  border-radius:10px;
+  font-size:13px;
+  font-weight:600;
+  color:#1e293b;
+  outline:none;
+  transition: border-color .15s, box-shadow .15s;
+  font-family: inherit;
+}
+.finput:focus {
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+  background:#fff;
+}
+.finput::placeholder { color:#94a3b8; font-weight:500; }
+
+.flbl {
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#64748b;
+}
+
+/* ─── Section tabs ─── */
+.ftab {
+  padding:6px 14px;
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  border-radius:10px;
+  border:none;
+  background:#f1f5f9;
+  color:#64748b;
+  cursor:pointer;
+  white-space:nowrap;
+  transition: background .15s, color .15s;
+}
+.ftab:hover { background:#e2e8f0; color:#1e293b; }
+.ftab.active { background:#2563eb; color:#fff; }
+
+/* ─── Status pill / select ─── */
+.status-pill {
+  display:inline-block;
+  padding:3px 10px;
+  font-size:9.5px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  border-radius:20px;
+  border:none;
+  outline:none;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
+}
+
+/* ─── Action buttons in table ─── */
+.action-btn {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  border:none;
+  background:transparent;
+  color:#64748b;
+  cursor:pointer;
+  transition: background .15s, color .15s;
+}
+.action-btn:hover { background:#f1f5f9; color:#1e293b; }
+
+/* ─── Stat chips ─── */
+.stat-chip {
+  font-size:10px;
+  font-weight:700;
+  color:#64748b;
+  background:#f1f5f9;
+  border-radius:8px;
+  padding:3px 9px;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:2px; }
+::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+/* ─── Screen transitions ─── */
+#login-screen, #app-screen { transition: opacity .2s; }
