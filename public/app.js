@@ -803,6 +803,13 @@ async function loadAdminPanel(){
   const s=r.settings||{};
   currentFormSettings  =deepMerge(DEFAULT_FORM,s.form_settings||{});
   currentIndexSettings =deepMerge(DEFAULT_INDEX,s.index_settings||{});
+  // load circular so index mapping can include its class/category options
+  if(!currentCircular){
+    const cd=s.circular_settings||{};
+    currentCircular=Object.assign({},DEFAULT_CIRCULAR,cd);
+    if(!Array.isArray(currentCircular.dimensions))currentCircular.dimensions=DEFAULT_CIRCULAR.dimensions.map(function(d){return Object.assign({},d);});
+    if(!Array.isArray(currentCircular.entries))currentCircular.entries=[];
+  }
   populateIndexSettings(currentIndexSettings);
   // form + admit templates loaded on-demand when their tabs are opened
   // Init live listeners
@@ -813,20 +820,59 @@ async function loadAdminPanel(){
 /* ─── Index Pattern ──────────────────────────────── */
 function populateIndexSettings(s){
   setV('ip-pattern',s.pattern||'{YY}{CLASS}{SEQ4}');
-  renderCodeTable('class-codes-table',s.classCodes||{},'class');
-  renderCodeTable('cat-codes-table',s.categoryCodes||{},'cat');
+  // Merge circular-defined class/category values into the code maps
+  const classCodes=Object.assign({},s.classCodes||{});
+  const catCodes=Object.assign({},s.categoryCodes||{});
+  const circClassKeys=new Set();
+  const circCatKeys=new Set();
+  if(currentCircular&&Array.isArray(currentCircular.dimensions)){
+    const classDim=currentCircular.dimensions.find(function(d){return d.label==='Class';});
+    const catDim  =currentCircular.dimensions.find(function(d){return d.label==='Category';});
+    if(classDim)(classDim.options||[]).forEach(function(opt){
+      if(!opt.value)return;
+      if(!(opt.value in classCodes))classCodes[opt.value]=opt.symbol||'';
+      circClassKeys.add(opt.value);
+    });
+    if(catDim)(catDim.options||[]).forEach(function(opt){
+      if(!opt.value)return;
+      if(!(opt.value in catCodes))catCodes[opt.value]=opt.symbol||'';
+      circCatKeys.add(opt.value);
+    });
+  }
+  renderCodeTable('class-codes-table',classCodes,'class',circClassKeys);
+  renderCodeTable('cat-codes-table',catCodes,'cat',circCatKeys);
+  refreshIndexDropdowns(classCodes,catCodes);
   updateIndexPreview();
 }
-function renderCodeTable(containerId,codes,prefix){
+function renderCodeTable(containerId,codes,prefix,circKeys){
   const el=document.getElementById(containerId);if(!el)return;
-  el.innerHTML=Object.entries(codes).map(([k,v])=>`
-    <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
-      <span class="text-xs font-bold text-slate-600 w-20 shrink-0">${k}</span>
-      <span class="text-slate-300">→</span>
-      <input type="text" data-prefix="${prefix}" data-key="${k}" value="${v}" maxlength="5"
-        class="finput finput-sm flex-1 font-mono text-center font-black text-blue-600"
-        oninput="updateIndexPreview()">
-    </div>`).join('');
+  const ck=circKeys||new Set();
+  el.innerHTML=Object.entries(codes).map(function(e){
+    const k=e[0],val=e[1],fromCirc=ck.has(k);
+    return '<div class="flex items-center gap-1.5 '+(fromCirc?'bg-indigo-50 border-indigo-200':'bg-slate-50 border-slate-200')+' border rounded-lg px-2 py-1.5">'+
+      '<span class="text-xs font-bold text-slate-600 w-20 shrink-0">'+k+(fromCirc?'<span style="font-size:8px;color:#6366f1;margin-left:3px" title="From Circular">●</span>':'')+'</span>'+
+      '<span class="text-slate-300">→</span>'+
+      '<input type="text" data-prefix="'+prefix+'" data-key="'+k+'" value="'+escH(val)+'" maxlength="6"'+
+        ' class="finput finput-sm flex-1 font-mono text-center font-black text-blue-600"'+
+        ' oninput="updateIndexPreview()">'+
+      '</div>';
+  }).join('');
+}
+function refreshIndexDropdowns(classCodes,catCodes){
+  const classSel=document.getElementById('ip-test-class');
+  const catSel  =document.getElementById('ip-test-cat');
+  if(classSel&&Object.keys(classCodes).length){
+    const prev=classSel.value;
+    classSel.innerHTML=Object.keys(classCodes).map(function(k){
+      return '<option'+(k===prev?' selected':'')+'>'+k+'</option>';
+    }).join('');
+  }
+  if(catSel&&Object.keys(catCodes).length){
+    const prev=catSel.value;
+    catSel.innerHTML=Object.keys(catCodes).map(function(k){
+      return '<option'+(k===prev?' selected':'')+'>'+k+'</option>';
+    }).join('');
+  }
 }
 function collectIndexSettings(){
   const classCodes={},catCodes={};
@@ -1170,6 +1216,8 @@ async function saveCircular(){
   const note=document.getElementById('circ-save-note');
   if(note){note.textContent='Saved '+new Date().toLocaleTimeString();setTimeout(function(){note.textContent='';},3000);}
   toast('Circular saved','success');
+  // refresh index mapping so new classes/categories appear immediately
+  populateIndexSettings(currentIndexSettings);
 }
 
 /* ── Dimensions ── */
