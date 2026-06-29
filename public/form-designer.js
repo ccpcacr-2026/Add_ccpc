@@ -47,6 +47,13 @@ var FIELD_MAP = {
   guardian_relation:    'Guardian Relation',
   guardian_office_address:'Guardian Office',
 };
+var FIELD_GROUPS = [
+  {g:'Application', keys:['tracking_id','index_id','session','class','category','version','quota']},
+  {g:'Student',     keys:['name_english','name_bangla','date_of_birth','blood_group','gender','religion','birth_reg_no','nationality','emergency_contact','height','co_curricular','last_institute','last_class','last_version','present_address','permanent_address']},
+  {g:'Father',      keys:['father_name','father_profession','father_designation','father_contact','father_nid','father_office_address','father_yearly_income']},
+  {g:'Mother',      keys:['mother_name','mother_profession','mother_designation','mother_contact','mother_nid','mother_office_address','mother_yearly_income']},
+  {g:'Guardian',    keys:['guardian_name','guardian_contact','guardian_relation','guardian_office_address']},
+];
 var PHOTO_MAP = {
   student_photo:  'Student Photo',
   father_photo:   'Father Photo',
@@ -86,7 +93,7 @@ function mkEl(type) {
   };
   switch(type) {
     case 'ld':   return Object.assign(base, {label:'Label', field:'name_english', staticValue:'', labelPos:'left', labelWidth:38});
-    case 'table':return Object.assign(base, {h:14, rowCount:1, dataMode:'data', columns:[{label:'Field 1',field:'name_english'},{label:'Field 2',field:'class'}]});
+    case 'table':return Object.assign(base, {h:14, rowCount:1, dataMode:'data', fieldColLabel1:'Particulars', fieldColLabel2:'Details', selectedFields:[], columns:[{label:'Field 1',field:'name_english'},{label:'Field 2',field:'class'}]});
     case 'lbl':  return Object.assign(base, {h:5, field:'name_english', staticValue:''});
     case 'para': return Object.assign(base, {h:18, content:'Type text here.\nUse {tracking_id} to insert field values.'});
     case 'photo':return Object.assign(base, {w:15, h:20, photoField:'student_photo'});
@@ -238,16 +245,35 @@ function elHTML(el, forPrint, app) {
   if (el.type === 'table') {
     var cols = el.columns || [];
     var rowCount = Math.max(1, el.rowCount || 1);
-    var dataMode = el.dataMode || 'data'; // 'data' | 'blank' | 'academic' | 'siblings'
+    var dataMode = el.dataMode || 'data'; // 'data'|'blank'|'academic'|'siblings'|'selected'
     var hdrCss = 'background:'+(s.hdrBg||'#1a2b5c')+';color:'+(s.hdrColor||'#fff')+
       ';font-size:'+(s.hdrFontSize||9)+'pt;font-weight:bold;' + pad +
       'border:' + (s.borderWidth||1) + 'px ' + (s.borderStyle||'solid') + ' ' + (s.borderColor||'#ccc') + ';';
     var cellCss = fnt() + pad + 'border:'+(s.borderWidth||1)+'px '+(s.borderStyle||'solid')+' '+(s.borderColor||'#ccc')+';vertical-align:top;';
+    var labelCellCss = cellCss + 'width:40%;font-weight:bold;background:'+(s.hdrBg||'#1a2b5c')+'22;';
     var blankRow = '<tr>' + cols.map(function(){return '<td style="'+cellCss+'">&nbsp;</td>';}).join('') + '</tr>';
     var dataRows = '';
+    var thead = '';
+
+    if (dataMode === 'selected') {
+      // Each selected field = one row: [label col | value col]
+      var selF = el.selectedFields || [];
+      var h1 = el.fieldColLabel1||''; var h2 = el.fieldColLabel2||'';
+      if (h1||h2) thead = '<thead><tr><th style="'+hdrCss+'" width="40%">'+h1+'</th><th style="'+hdrCss+'">'+h2+'</th></tr></thead>';
+      if (selF.length) {
+        selF.forEach(function(sf){
+          var val = fv(demo, sf.field);
+          dataRows += '<tr><td style="'+labelCellCss+'">'+escH(sf.label||FIELD_MAP[sf.field]||sf.field)+'</td><td style="'+cellCss+'">'+val+'</td></tr>';
+        });
+      } else {
+        dataRows = '<tr><td style="'+cellCss+'" colspan="2" align="center">No fields selected — pick fields in the panel</td></tr>';
+      }
+      return '<table style="width:100%;border-collapse:collapse;'+bg+'">'+thead+'<tbody>'+dataRows+'</tbody></table>';
+    }
+
+    thead = '<thead><tr>' + cols.map(function(c){return '<th style="'+hdrCss+'">'+( c.label||'')+'</th>';}).join('') + '</tr></thead>';
 
     if (dataMode === 'blank') {
-      // All rows blank
       for (var bi=0; bi<rowCount; bi++) dataRows += blankRow;
     } else if (dataMode === 'academic') {
       var acadData = (app && app.academic_records) ? app.academic_records : (demo && demo.academic_records ? demo.academic_records : []);
@@ -280,8 +306,7 @@ function elHTML(el, forPrint, app) {
     }
 
     return '<table style="width:100%;border-collapse:collapse;' + bg + '">' +
-      '<thead><tr>' + cols.map(function(c){return '<th style="'+hdrCss+'">'+( c.label||'')+'</th>';}).join('') + '</tr></thead>' +
-      '<tbody>' + dataRows + '</tbody>' +
+      thead + '<tbody>' + dataRows + '</tbody>' +
       '</table>';
   }
 
@@ -554,19 +579,61 @@ function fdRenderProps(el) {
       sel('Data Mode', 'dataMode', el.dataMode||'data', [
         ['data',     'Field Values (1st row)'],
         ['blank',    'All Blank (hand-fill)'],
+        ['selected', 'Selected Fields (vertical)'],
         ['academic', 'Academic Records'],
         ['siblings', 'Siblings Data'],
       ]) +
       '</div>' +
-      '<div class="pp-note">'+
-        ((!el.dataMode||el.dataMode==='data') ? 'Row 1 = bound fields. Extra rows print blank.' :
-         el.dataMode==='blank'                ? 'All rows print blank — for manual handwriting.' :
-         el.dataMode==='academic'             ? 'Pulls from Academic Records table in the form.' :
-         'Pulls from Siblings table in the form.') +
-      '</div>' +
-      section('Columns') +
-      colsHtml +
-      '<button class="pp-add-col" onclick="fdAddCol(\''+id+'\')">+ Add Column</button>' +
+
+      // ── SELECTED FIELDS mode ──────────────────────────────────
+      (el.dataMode==='selected' ? (function(){
+        var selF = el.selectedFields || [];
+        var selSet = {};
+        selF.forEach(function(sf){selSet[sf.field]=true;});
+
+        // Current ordered list
+        var selRows = selF.length ? selF.map(function(sf,i){
+          return '<div class="pp-selrow" style="display:flex;align-items:center;gap:3px;margin-bottom:3px">'+
+            '<span style="font-size:9px;color:#94a3b8;min-width:14px;text-align:right">'+(i+1)+'.</span>'+
+            '<input class="pp-inp" style="flex:1" value="'+escH(sf.label||FIELD_MAP[sf.field]||sf.field)+'" title="Row label" oninput="fdUpdSelLabel(\''+id+'\','+i+',this.value)">'+
+            '<span style="font-size:9px;color:#64748b;white-space:nowrap;max-width:60px;overflow:hidden;text-overflow:ellipsis" title="'+escH(FIELD_MAP[sf.field]||sf.field)+'">'+escH((FIELD_MAP[sf.field]||sf.field).slice(0,12))+'</span>'+
+            '<button class="fdc-ord" style="position:static;width:20px;height:20px;background:#94a3b8;border-radius:3px;font-size:10px" onclick="fdMoveSelField(\''+id+'\','+i+',-1)" '+(i===0?'disabled':'')+'>&uarr;</button>'+
+            '<button class="fdc-ord" style="position:static;width:20px;height:20px;background:#94a3b8;border-radius:3px;font-size:10px" onclick="fdMoveSelField(\''+id+'\','+i+',1)" '+(i===selF.length-1?'disabled':'')+'>&darr;</button>'+
+            '<button class="pp-col-del" onclick="fdToggleSelField(\''+id+'\',\''+sf.field+'\',\'\')">×</button>'+
+            '</div>';
+        }).join('') : '<div class="pp-note" style="padding:4px 0">No fields selected yet — pick from list below</div>';
+
+        // Column header inputs
+        var hdrInputs = '<div class="pp-grid2">'+
+          '<div class="pp-row"><label class="pp-lbl">Left header</label><input class="pp-inp" value="'+escH(el.fieldColLabel1||'')+'" placeholder="Particulars" oninput="fdPropUpd(\''+id+'\',\'fieldColLabel1\',this.value)"></div>'+
+          '<div class="pp-row"><label class="pp-lbl">Right header</label><input class="pp-inp" value="'+escH(el.fieldColLabel2||'')+'" placeholder="Details" oninput="fdPropUpd(\''+id+'\',\'fieldColLabel2\',this.value)"></div>'+
+          '</div>';
+
+        // Grouped checklist
+        var checklist = FIELD_GROUPS.map(function(grp){
+          var items = grp.keys.map(function(k){
+            var checked = !!selSet[k];
+            return '<label class="pp-selfld-item '+(checked?'pp-selfld-on':'')+'" onclick="fdToggleSelField(\''+id+'\',\''+k+'\',\''+escH(FIELD_MAP[k]||k)+'\')">'+(checked?'✓ ':'')+escH(FIELD_MAP[k]||k)+'</label>';
+          }).join('');
+          return '<div class="pp-fgrp"><div class="pp-fgrp-hdr">'+grp.g+'</div><div class="pp-fgrp-body">'+items+'</div></div>';
+        }).join('');
+
+        return section('Column Headers')+hdrInputs+
+          section('Row Order ('+selF.length+' rows)')+selRows+
+          section('Add / Remove Fields')+checklist;
+      })() : (
+        // Non-selected modes: show note + column editor
+        '<div class="pp-note">'+
+          ((!el.dataMode||el.dataMode==='data') ? 'Row 1 = bound fields. Extra rows print blank.' :
+           el.dataMode==='blank'                ? 'All rows print blank — for manual handwriting.' :
+           el.dataMode==='academic'             ? 'Pulls from Academic Records table in the form.' :
+           'Pulls from Siblings table in the form.') +
+        '</div>' +
+        section('Columns') +
+        colsHtml +
+        '<button class="pp-add-col" onclick="fdAddCol(\''+id+'\')">+ Add Column</button>'
+      )) +
+
       section('Header Style') +
       '<div class="pp-grid2">' +
       colorInp('Header BG','hdrBg',s.hdrBg||'#1a2b5c') +
@@ -686,6 +753,27 @@ function fdRmCol(id, idx) {
   if (!el||!el.columns) return;
   el.columns.splice(idx,1);
   fdRender(); fdRenderProps(el);
+}
+
+/* ── Selected-fields helpers ─────────────────────── */
+function fdToggleSelField(id, field, defaultLabel) {
+  var el = formLayout.find(function(e){return e.id===id;}); if(!el) return;
+  if(!el.selectedFields) el.selectedFields=[];
+  var idx = el.selectedFields.findIndex(function(f){return f.field===field;});
+  if (idx >= 0) { el.selectedFields.splice(idx,1); }
+  else { el.selectedFields.push({field:field, label:defaultLabel||FIELD_MAP[field]||field}); }
+  fdRender(); fdRenderProps(el);
+}
+function fdMoveSelField(id, idx, dir) {
+  var el = formLayout.find(function(e){return e.id===id;}); if(!el||!el.selectedFields) return;
+  var arr=el.selectedFields, ni=idx+dir;
+  if(ni<0||ni>=arr.length) return;
+  var tmp=arr[idx]; arr[idx]=arr[ni]; arr[ni]=tmp;
+  fdRender(); fdRenderProps(el);
+}
+function fdUpdSelLabel(id, idx, val) {
+  var el = formLayout.find(function(e){return e.id===id;}); if(!el||!el.selectedFields) return;
+  el.selectedFields[idx].label=val; fdRender();
 }
 
 /* ── Template state ───────────────────────────────── */
