@@ -441,10 +441,36 @@
         </div>
       </div>
 
-      <!-- Tab: Form Designer -->
+      <!-- Tab: Form Designer (Canvas) -->
       <div id="at-form" class="atab-panel hidden">
-        <div class="designer-layout">
-          <div class="designer-settings" id="form-designer-panel">
+        <!-- Toolbar -->
+        <div class="fd-toolbar">
+          <span class="flbl mr-1">Add:</span>
+          <button class="fd-tool" onclick="fdAddEl('ld')" title="Label + Data box with border"><i data-lucide="square-split-horizontal" class="h-3 w-3"></i> Label+Data</button>
+          <button class="fd-tool" onclick="fdAddEl('table')" title="Multi-column table"><i data-lucide="table" class="h-3 w-3"></i> Table</button>
+          <button class="fd-tool" onclick="fdAddEl('lbl')" title="Text label from field or static"><i data-lucide="type" class="h-3 w-3"></i> Label</button>
+          <button class="fd-tool" onclick="fdAddEl('para')" title="Paragraph block"><i data-lucide="align-left" class="h-3 w-3"></i> Paragraph</button>
+          <button class="fd-tool" onclick="fdAddEl('photo')" title="Photo with label"><i data-lucide="image" class="h-3 w-3"></i> Photo</button>
+          <button class="fd-tool" onclick="fdAddEl('qr')" title="QR code with logo option + dynamic label"><i data-lucide="qr-code" class="h-3 w-3"></i> QR</button>
+          <div class="flex-1"></div>
+          <button class="fd-tool" onclick="fdZoom(-0.1)">−</button>
+          <span id="fd-zoom-lbl" class="text-xs font-black text-slate-600 w-12 text-center">100%</span>
+          <button class="fd-tool" onclick="fdZoom(0.1)">+</button>
+          <button class="fd-tool" onclick="fdZoomFit()"><i data-lucide="maximize-2" class="h-3 w-3"></i></button>
+          <div class="w-px h-5 bg-slate-200 mx-1"></div>
+          <button class="fd-tool text-red-400" onclick="fdClearCanvas()"><i data-lucide="trash-2" class="h-3 w-3"></i> Clear</button>
+          <button class="fd-tool text-blue-600" onclick="previewFormLayout()"><i data-lucide="eye" class="h-3 w-3"></i> Preview</button>
+          <button class="fd-tool text-emerald-600 font-black" onclick="saveFormLayout()"><i data-lucide="save" class="h-3 w-3"></i> Save</button>
+        </div>
+        <!-- Canvas + props -->
+        <div style="display:flex;gap:10px;height:calc(100vh - 230px)">
+          <div id="canvas-scroll" style="flex:1;overflow:auto;background:#4b5563;border-radius:12px;padding:16px;">
+            <div id="form-canvas" style="position:relative;width:794px;min-height:1123px;background:#fff;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,.5);"></div>
+          </div>
+          <div id="props-panel" style="width:260px;overflow-y:auto;background:#fff;border-radius:12px;border:1px solid #e2e8f0;flex-shrink:0;"></div>
+        </div>
+        <!-- CANVAS DESIGNER (old accordion removed) -->
+        <div style="display:none" id="form-designer-panel">
 
             <details open class="dgroup">
               <summary class="dgroup-hdr"><i data-lucide="type" class="h-3.5 w-3.5 shrink-0"></i> Header</summary>
@@ -643,14 +669,6 @@
           </div>
 
           <!-- Form Preview -->
-          <div class="designer-preview">
-            <div class="designer-preview-bar">
-              <span>Form Preview</span>
-              <button onclick="updateFormPreview()" class="preview-refresh-btn"><i data-lucide="refresh-cw" class="h-3 w-3"></i> Refresh</button>
-            </div>
-            <iframe id="form-preview-iframe" class="preview-iframe"></iframe>
-          </div>
-        </div>
       </div>
 
       <!-- Tab: Admit Card Designer -->
@@ -763,6 +781,7 @@
   </main>
 </div>
 
+<script src="/form-designer.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

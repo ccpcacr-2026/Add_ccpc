@@ -185,7 +185,7 @@ function showAdminTab(id,btn){
   document.querySelectorAll('.atab').forEach(el=>el.classList.remove('active'));
   document.getElementById(id).classList.remove('hidden');btn.classList.add('active');
   if(id==='at-index')updateIndexPreview();
-  if(id==='at-form')setTimeout(updateFormPreview,100);
+  if(id==='at-form'){setTimeout(function(){initCanvas();fdZoomFit();},80);}
   if(id==='at-admit')setTimeout(updateAdmitPreview,100);
   if(id==='at-counters')loadCounters();
 }
@@ -441,10 +441,15 @@ async function ensureSettings(){
     currentIndexSettings=deepMerge(DEFAULT_INDEX,s.index_settings||{});
   }
 }
+async function ensureFormLayout(){
+  if(formLayout&&formLayout.length)return;
+  const r=await api('getSettings',{});
+  formLayout=((r.settings||{}).form_layout||{}).elements||[];
+}
 async function printForm(){
-  await ensureSettings();
+  await ensureSettings();await ensureFormLayout();
   const data=collectForm();
-  openPrintTab(generateFormHtml(data,currentFormSettings));
+  openPrintTab(formLayout&&formLayout.length ? generateFormFromLayout(data,formLayout) : generateFormHtml(data,currentFormSettings));
 }
 async function printAdmitCard(){
   if(!currentId){toast('Save the application first to generate Admit Card','warn');return;}
@@ -454,10 +459,10 @@ async function printAdmitCard(){
   openPrintTab(generateAdmitHtml(r.application,currentAdmitSettings));
 }
 async function printFormById(id){
-  await ensureSettings();setLoading(true);
+  await ensureSettings();await ensureFormLayout();setLoading(true);
   const r=await api('getApplication',{id});setLoading(false);
   if(!r.application){toast('Not found','error');return;}
-  openPrintTab(generateFormHtml(r.application,currentFormSettings));
+  openPrintTab(formLayout&&formLayout.length ? generateFormFromLayout(r.application,formLayout) : generateFormHtml(r.application,currentFormSettings));
 }
 async function printAdmitById(id){
   await ensureSettings();setLoading(true);
@@ -784,7 +789,8 @@ async function loadAdminPanel(){
   currentFormSettings  =deepMerge(DEFAULT_FORM,s.form_settings||{});
   currentAdmitSettings =deepMerge(DEFAULT_ADMIT,s.admit_card_settings||{});
   currentIndexSettings =deepMerge(DEFAULT_INDEX,s.index_settings||{});
-  populateFormDesigner(currentFormSettings);
+  // form layout is loaded on-demand when the tab is opened
+  formLayout=(s.form_layout&&s.form_layout.elements)||[];
   populateAdmitDesigner(currentAdmitSettings);
   populateIndexSettings(currentIndexSettings);
   // Init live listeners
