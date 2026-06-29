@@ -18,22 +18,18 @@
     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Processing…</p>
   </div>
 </div>
-
-<!-- Toast -->
-<div id="toast-container" class="fixed top-4 right-4 z-[300] space-y-2"></div>
-
-<!-- Confirm Modal -->
+<div id="toast-container" class="fixed top-4 right-4 z-[300] space-y-2 pointer-events-none"></div>
 <div id="confirmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[250] hidden items-center justify-center">
   <div class="bg-white rounded-2xl w-full max-w-sm p-7 mx-4 shadow-2xl">
     <p id="confirmMsg" class="font-bold text-slate-700 mb-5 text-sm">Are you sure?</p>
     <div class="flex gap-3">
       <button onclick="closeConfirm()" class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest text-slate-400 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Cancel</button>
-      <button id="confirmOkBtn" class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest bg-red-500 text-white rounded-xl hover:bg-black transition-all">Delete</button>
+      <button id="confirmOkBtn" class="flex-1 py-2.5 text-xs font-black uppercase tracking-widest bg-red-500 text-white rounded-xl hover:bg-black transition-all">Confirm</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════ LOGIN SCREEN ═══════ -->
+<!-- LOGIN -->
 <div id="login-screen" class="fixed inset-0 bg-gradient-to-br from-slate-900 to-blue-950 flex items-center justify-center p-6 z-[90]">
   <div class="bg-white rounded-3xl w-full max-w-sm p-10 shadow-2xl">
     <div class="text-center mb-8">
@@ -45,82 +41,80 @@
     </div>
     <form id="loginForm" class="space-y-4">
       <input type="password" id="loginPass" placeholder="Admin Password" required
-        class="w-full px-5 py-3.5 bg-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-600 border-none">
+        class="w-full px-5 py-3.5 bg-slate-100 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-600">
       <p id="loginError" class="text-red-500 text-xs font-bold text-center hidden">Invalid password</p>
-      <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-black transition-all uppercase tracking-widest text-xs shadow-lg shadow-blue-500/20">Sign In</button>
+      <button type="submit" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl hover:bg-black transition-all uppercase tracking-widest text-xs">Sign In</button>
     </form>
   </div>
 </div>
 
-<!-- ═══════ APP SCREEN ═══════ -->
-<div id="app-screen" class="hidden flex flex-col h-screen overflow-hidden">
+<!-- APP -->
+<div id="app-screen" class="hidden flex-col h-screen overflow-hidden">
 
   <!-- Top Bar -->
-  <header class="shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
+  <header class="shrink-0 bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2.5">
       <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center overflow-hidden shrink-0">
-        <img src="https://lh3.googleusercontent.com/d/1Gb6gpcw1moYPAh9hSZ7cEQ5vgXxHj8LB" alt="CCPC" class="w-6 h-6 object-contain">
+        <img src="https://lh3.googleusercontent.com/d/1Gb6gpcw1moYPAh9hSZ7cEQ5vgXxHj8LB" alt="" class="w-6 h-6 object-contain">
       </div>
-      <div>
+      <div class="hidden sm:block">
         <p class="font-black text-slate-800 text-sm leading-none">CCPC Admission</p>
         <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Management System</p>
       </div>
     </div>
-    <div id="topbar-stats" class="hidden md:flex items-center gap-2"></div>
-    <div class="flex items-center gap-2">
-      <button onclick="loadDashboard()" id="btn-dashboard" class="hidden items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
-        <i data-lucide="layout-grid" class="h-3.5 w-3.5"></i> Dashboard
+    <div id="topbar-stats" class="hidden md:flex items-center gap-2 flex-1 justify-center"></div>
+    <div class="flex items-center gap-1.5">
+      <button onclick="loadDashboard()" id="btn-dashboard" class="nav-btn hidden">
+        <i data-lucide="layout-grid" class="h-3.5 w-3.5"></i><span class="hidden sm:inline">Dashboard</span>
       </button>
-      <button onclick="loadNewApplication()" class="hidden items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl bg-blue-600 text-white hover:bg-black transition-all shadow-sm shadow-blue-500/30" id="btn-new">
-        <i data-lucide="plus" class="h-3.5 w-3.5"></i> New
+      <button onclick="loadAdminPanel()" id="btn-admin" class="nav-btn">
+        <i data-lucide="settings-2" class="h-3.5 w-3.5"></i><span class="hidden sm:inline">Admin</span>
       </button>
-      <button onclick="logout()" class="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl bg-red-50 text-red-500 hover:bg-red-100 transition-all">
-        <i data-lucide="log-out" class="h-3.5 w-3.5"></i> Logout
+      <button onclick="loadNewApplication()" id="btn-new" class="nav-btn nav-btn-primary hidden">
+        <i data-lucide="plus" class="h-3.5 w-3.5"></i><span class="hidden sm:inline">New</span>
+      </button>
+      <button onclick="logout()" class="nav-btn nav-btn-danger">
+        <i data-lucide="log-out" class="h-3.5 w-3.5"></i>
       </button>
     </div>
   </header>
 
-  <!-- Content -->
-  <main class="flex-1 overflow-y-auto">
+  <main class="flex-1 overflow-y-auto min-h-0">
 
-    <!-- ── Dashboard ── -->
+    <!-- ══ Dashboard ══ -->
     <div id="view-dashboard" class="hidden p-5 max-w-7xl mx-auto">
-      <!-- Filters -->
       <div class="flex flex-wrap items-center gap-3 mb-5">
         <input type="text" id="searchInput" placeholder="Search name, tracking ID…" oninput="filterApps()"
-          class="flex-1 min-w-[180px] px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500">
-        <select id="filterSession" onchange="filterApps()" class="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="">All Sessions</option>
-          <option value="2026">2026</option>
-          <option value="2025">2025</option>
+          class="flex-1 min-w-[160px] px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500">
+        <select id="filterSession" onchange="filterApps()" class="finput-sm">
+          <option value="">All Sessions</option><option>2026</option><option>2025</option><option>2027</option>
         </select>
-        <select id="filterClass" onchange="filterApps()" class="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500">
+        <select id="filterClass" onchange="filterApps()" class="finput-sm">
           <option value="">All Classes</option>
           <option>Nursery</option><option>KG</option><option>One</option><option>Two</option>
           <option>Three</option><option>Four</option><option>Five</option><option>Six</option>
           <option>Seven</option><option>Eight</option><option>Nine</option><option>Ten</option>
           <option>Eleven</option><option>Twelve</option>
         </select>
-        <select id="filterStatus" onchange="filterApps()" class="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500">
+        <select id="filterStatus" onchange="filterApps()" class="finput-sm">
           <option value="">All Status</option>
           <option>Pending</option><option>Called for Test</option><option>Admitted</option><option>Rejected</option>
         </select>
-        <button onclick="loadNewApplication()" class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-sm shadow-blue-500/20">
+        <button onclick="loadNewApplication()" class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all shadow-sm">
           <i data-lucide="plus" class="h-3.5 w-3.5"></i> New Application
         </button>
       </div>
-      <!-- Table -->
-      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-100">
-              <th class="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Tracking ID</th>
-              <th class="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Student Name</th>
-              <th class="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hidden md:table-cell">Class</th>
-              <th class="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hidden md:table-cell">Category</th>
-              <th class="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500 hidden lg:table-cell">Session</th>
-              <th class="text-left px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-              <th class="text-right px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-500">Actions</th>
+              <th class="tbl-hdr text-left">Tracking ID</th>
+              <th class="tbl-hdr text-left">Student Name</th>
+              <th class="tbl-hdr text-left hidden md:table-cell">Class</th>
+              <th class="tbl-hdr text-left hidden md:table-cell">Category</th>
+              <th class="tbl-hdr text-left hidden lg:table-cell">Session</th>
+              <th class="tbl-hdr text-left">Status</th>
+              <th class="tbl-hdr text-right">Actions</th>
             </tr>
           </thead>
           <tbody id="app-table-body">
@@ -131,24 +125,24 @@
       <p id="app-count" class="text-[10px] text-slate-400 font-bold mt-3 text-right"></p>
     </div>
 
-    <!-- ── Application Form ── -->
+    <!-- ══ Application Form ══ -->
     <div id="view-form" class="hidden p-5 max-w-5xl mx-auto">
-      <div class="flex items-center gap-3 mb-5">
-        <button onclick="loadDashboard()" class="flex items-center gap-1.5 px-3 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
-          <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i> Back
-        </button>
+      <div class="flex items-center gap-3 mb-5 flex-wrap">
+        <button onclick="loadDashboard()" class="nav-btn"><i data-lucide="arrow-left" class="h-3.5 w-3.5"></i> Back</button>
         <h2 id="form-title" class="font-black text-slate-800 text-base">New Application</h2>
         <div class="ml-auto flex items-center gap-2">
-          <button onclick="saveApplication()" class="flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-blue-600 text-white hover:bg-black transition-all shadow-sm">
+          <button onclick="saveApplication()" class="nav-btn nav-btn-primary">
             <i data-lucide="save" class="h-3.5 w-3.5"></i> Save
           </button>
-          <button onclick="printCurrent()" class="flex items-center gap-1.5 px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl bg-emerald-600 text-white hover:bg-black transition-all shadow-sm">
-            <i data-lucide="printer" class="h-3.5 w-3.5"></i> Print
+          <button onclick="printAdmitCard()" class="nav-btn" style="background:#7c3aed;color:#fff">
+            <i data-lucide="id-card" class="h-3.5 w-3.5"></i><span class="hidden sm:inline"> Admit Card</span>
+          </button>
+          <button onclick="printForm()" class="nav-btn" style="background:#059669;color:#fff">
+            <i data-lucide="printer" class="h-3.5 w-3.5"></i><span class="hidden sm:inline"> Print</span>
           </button>
         </div>
       </div>
 
-      <!-- Section tabs -->
       <div class="flex gap-1 mb-4 overflow-x-auto pb-1">
         <button class="ftab active" onclick="showSection('s-appinfo',this)">Application</button>
         <button class="ftab" onclick="showSection('s-student',this)">Student</button>
@@ -157,14 +151,12 @@
         <button class="ftab" onclick="showSection('s-guardian',this)">Guardian</button>
       </div>
 
-      <!-- Section: Application Info -->
+      <!-- App Info -->
       <div id="s-appinfo" class="fsec bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Application Information</p>
+        <p class="sec-lbl">Application Information</p>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div class="space-y-1.5"><label class="flbl">Session</label>
-            <select id="f-session" class="finput">
-              <option value="2026">2026</option><option value="2027">2027</option><option value="2025">2025</option>
-            </select></div>
+            <select id="f-session" class="finput"><option>2026</option><option>2027</option><option>2025</option></select></div>
           <div class="space-y-1.5"><label class="flbl">Class</label>
             <select id="f-class" class="finput">
               <option>Nursery</option><option>KG</option><option>One</option><option>Two</option>
@@ -178,81 +170,51 @@
               <option>CCPC Teacher</option><option>Staff</option>
             </select></div>
           <div class="space-y-1.5"><label class="flbl">Version</label>
-            <select id="f-version" class="finput">
-              <option>Bangla</option><option>English</option>
-            </select></div>
+            <select id="f-version" class="finput"><option>Bangla</option><option>English</option></select></div>
           <div class="space-y-1.5"><label class="flbl">Quota</label>
             <select id="f-quota" class="finput">
-              <option value="No">No</option><option value="Freedom Fighter">Freedom Fighter</option>
+              <option value="No">No Quota</option><option value="Freedom Fighter">Freedom Fighter</option>
             </select></div>
           <div class="space-y-1.5"><label class="flbl">Status</label>
             <select id="f-status" class="finput">
               <option>Pending</option><option>Called for Test</option><option>Admitted</option><option>Rejected</option>
             </select></div>
-          <div class="space-y-1.5"><label class="flbl">Tracking ID <span class="text-slate-300">(auto)</span></label>
-            <input type="text" id="f-tracking-id" class="finput" placeholder="Auto-generated"></div>
-          <div class="space-y-1.5"><label class="flbl">Index ID <span class="text-slate-300">(auto)</span></label>
-            <input type="text" id="f-index-id" class="finput" placeholder="Auto-generated"></div>
+          <div class="space-y-1.5"><label class="flbl">Tracking ID <span class="text-slate-300 font-normal">(auto)</span></label>
+            <input type="text" id="f-tracking-id" class="finput font-black text-blue-600" placeholder="Auto on save" readonly></div>
+          <div class="space-y-1.5"><label class="flbl">Index ID <span class="text-slate-300 font-normal">(auto)</span></label>
+            <input type="text" id="f-index-id" class="finput" placeholder="Auto on save" readonly></div>
         </div>
       </div>
 
-      <!-- Section: Student Details -->
+      <!-- Student -->
       <div id="s-student" class="fsec hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Student Details</p>
-        <div class="flex gap-6">
-          <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-1.5"><label class="flbl">Name (English)</label>
-              <input type="text" id="f-name-en" class="finput" placeholder="FULL NAME IN CAPS"></div>
-            <div class="space-y-1.5"><label class="flbl">নাম (বাংলায়)</label>
-              <input type="text" id="f-name-bn" class="finput" placeholder="বাংলা নাম"></div>
-            <div class="space-y-1.5"><label class="flbl">Date of Birth</label>
-              <input type="date" id="f-dob" class="finput"></div>
+        <p class="sec-lbl">Student Details</p>
+        <div class="flex gap-6 flex-wrap">
+          <div class="flex-1 min-w-[260px] grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="flbl">Name (English)</label><input type="text" id="f-name-en" class="finput" placeholder="FULL NAME IN CAPS"></div>
+            <div class="space-y-1.5"><label class="flbl">নাম (বাংলায়)</label><input type="text" id="f-name-bn" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Date of Birth</label><input type="date" id="f-dob" class="finput"></div>
             <div class="space-y-1.5"><label class="flbl">Blood Group</label>
-              <select id="f-blood" class="finput">
-                <option value="">Select…</option>
-                <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
-                <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
-              </select></div>
+              <select id="f-blood" class="finput"><option value="">Select…</option><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
             <div class="space-y-1.5"><label class="flbl">Gender</label>
-              <select id="f-gender" class="finput">
-                <option value="">Select…</option>
-                <option>Male</option><option>Female</option><option>Other</option>
-              </select></div>
+              <select id="f-gender" class="finput"><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select></div>
             <div class="space-y-1.5"><label class="flbl">Religion</label>
-              <select id="f-religion" class="finput">
-                <option value="">Select…</option>
-                <option>Islam</option><option>Hindu</option><option>Christian</option><option>Buddhist</option><option>Other</option>
-              </select></div>
-            <div class="space-y-1.5"><label class="flbl">Birth Registration No.</label>
-              <input type="text" id="f-birth-reg" class="finput" placeholder="17-digit number"></div>
-            <div class="space-y-1.5"><label class="flbl">Nationality</label>
-              <input type="text" id="f-nationality" class="finput" value="Bangladeshi"></div>
-            <div class="space-y-1.5"><label class="flbl">Emergency Contact No.</label>
-              <input type="tel" id="f-emergency" class="finput" placeholder="+880..."></div>
-            <div class="space-y-1.5"><label class="flbl">Height (Inch)</label>
-              <input type="text" id="f-height" class="finput" placeholder="e.g. 52"></div>
-            <div class="space-y-1.5"><label class="flbl">Last Class</label>
-              <input type="text" id="f-last-class" class="finput" placeholder="e.g. 2"></div>
+              <select id="f-religion" class="finput"><option value="">Select…</option><option>Islam</option><option>Hindu</option><option>Christian</option><option>Buddhist</option><option>Other</option></select></div>
+            <div class="space-y-1.5"><label class="flbl">Birth Registration No.</label><input type="text" id="f-birth-reg" class="finput" placeholder="17-digit"></div>
+            <div class="space-y-1.5"><label class="flbl">Nationality</label><input type="text" id="f-nationality" class="finput" value="Bangladeshi"></div>
+            <div class="space-y-1.5"><label class="flbl">Emergency Contact</label><input type="tel" id="f-emergency" class="finput" placeholder="+880…"></div>
+            <div class="space-y-1.5"><label class="flbl">Height (Inch)</label><input type="text" id="f-height" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Last Class</label><input type="text" id="f-last-class" class="finput"></div>
             <div class="space-y-1.5"><label class="flbl">Last Version</label>
-              <select id="f-last-version" class="finput">
-                <option value="">Select…</option><option>Bangla</option><option>English</option>
-              </select></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Last Institute</label>
-              <input type="text" id="f-last-institute" class="finput" placeholder="School / College name"></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Present Address</label>
-              <textarea id="f-present-address" class="finput h-16 resize-none" placeholder="Full present address"></textarea></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Permanent Address</label>
-              <textarea id="f-permanent-address" class="finput h-16 resize-none" placeholder="Village, PO, PS, District"></textarea></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Co-curricular Activities</label>
-              <input type="text" id="f-co-curricular" class="finput" placeholder="e.g. Football, Cricket, Drawing"></div>
+              <select id="f-last-version" class="finput"><option value="">Select…</option><option>Bangla</option><option>English</option></select></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Last Institute</label><input type="text" id="f-last-institute" class="finput"></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Present Address</label><textarea id="f-present-address" class="finput h-16 resize-none"></textarea></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Permanent Address</label><textarea id="f-permanent-address" class="finput h-16 resize-none"></textarea></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Co-curricular Activities</label><input type="text" id="f-co-curricular" class="finput"></div>
           </div>
-          <!-- Student Photo -->
-          <div class="shrink-0 w-32">
-            <label class="flbl mb-1.5 block">Student Photo</label>
-            <div id="student-photo-preview" onclick="document.getElementById('student-photo-input').click()"
-              class="w-28 h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all overflow-hidden">
-              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i>
-              <span class="text-[9px] text-slate-400 mt-1">Click to upload</span>
+          <div class="shrink-0"><label class="flbl mb-2 block">Student Photo</label>
+            <div id="student-photo-preview" onclick="document.getElementById('student-photo-input').click()" class="photo-upload-box">
+              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i><span class="text-[9px] text-slate-400 mt-1">Click to upload</span>
             </div>
             <input type="file" id="student-photo-input" accept="image/*" class="hidden" onchange="handlePhoto(this,'student-photo-preview','f-student-photo')">
             <input type="hidden" id="f-student-photo">
@@ -260,34 +222,23 @@
         </div>
       </div>
 
-      <!-- Section: Father -->
+      <!-- Father -->
       <div id="s-father" class="fsec hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Father's Details</p>
-        <div class="flex gap-6">
-          <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-1.5"><label class="flbl">Father's Name</label>
-              <input type="text" id="f-father-name" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Profession / Occupation</label>
-              <input type="text" id="f-father-profession" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Designation / Rank</label>
-              <input type="text" id="f-father-designation" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Education</label>
-              <input type="text" id="f-father-education" class="finput" placeholder="e.g. MSc Physics"></div>
-            <div class="space-y-1.5"><label class="flbl">Contact No.</label>
-              <input type="tel" id="f-father-contact" class="finput" placeholder="+880..."></div>
-            <div class="space-y-1.5"><label class="flbl">NID</label>
-              <input type="text" id="f-father-nid" class="finput"></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Office Address / Unit</label>
-              <input type="text" id="f-father-office" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Yearly Income (BDT)</label>
-              <input type="text" id="f-father-income" class="finput" placeholder="e.g. 1200000"></div>
+        <p class="sec-lbl">Father's Details</p>
+        <div class="flex gap-6 flex-wrap">
+          <div class="flex-1 min-w-[260px] grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="flbl">Father's Name</label><input type="text" id="f-father-name" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Profession</label><input type="text" id="f-father-profession" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Designation / Rank</label><input type="text" id="f-father-designation" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Education</label><input type="text" id="f-father-education" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Contact No.</label><input type="tel" id="f-father-contact" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">NID</label><input type="text" id="f-father-nid" class="finput"></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Office Address / Unit</label><input type="text" id="f-father-office" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Yearly Income (BDT)</label><input type="text" id="f-father-income" class="finput"></div>
           </div>
-          <div class="shrink-0 w-32">
-            <label class="flbl mb-1.5 block">Father's Photo</label>
-            <div id="father-photo-preview" onclick="document.getElementById('father-photo-input').click()"
-              class="w-28 h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all overflow-hidden">
-              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i>
-              <span class="text-[9px] text-slate-400 mt-1">Click to upload</span>
+          <div class="shrink-0"><label class="flbl mb-2 block">Father's Photo</label>
+            <div id="father-photo-preview" onclick="document.getElementById('father-photo-input').click()" class="photo-upload-box">
+              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i><span class="text-[9px] text-slate-400 mt-1">Click</span>
             </div>
             <input type="file" id="father-photo-input" accept="image/*" class="hidden" onchange="handlePhoto(this,'father-photo-preview','f-father-photo')">
             <input type="hidden" id="f-father-photo">
@@ -295,34 +246,23 @@
         </div>
       </div>
 
-      <!-- Section: Mother -->
+      <!-- Mother -->
       <div id="s-mother" class="fsec hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Mother's Details</p>
-        <div class="flex gap-6">
-          <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-1.5"><label class="flbl">Mother's Name</label>
-              <input type="text" id="f-mother-name" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Profession / Occupation</label>
-              <input type="text" id="f-mother-profession" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Designation / Rank</label>
-              <input type="text" id="f-mother-designation" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Education</label>
-              <input type="text" id="f-mother-education" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Contact No.</label>
-              <input type="tel" id="f-mother-contact" class="finput" placeholder="+880..."></div>
-            <div class="space-y-1.5"><label class="flbl">NID</label>
-              <input type="text" id="f-mother-nid" class="finput"></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Office Address / Unit</label>
-              <input type="text" id="f-mother-office" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Yearly Income (BDT)</label>
-              <input type="text" id="f-mother-income" class="finput"></div>
+        <p class="sec-lbl">Mother's Details</p>
+        <div class="flex gap-6 flex-wrap">
+          <div class="flex-1 min-w-[260px] grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="flbl">Mother's Name</label><input type="text" id="f-mother-name" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Profession</label><input type="text" id="f-mother-profession" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Designation / Rank</label><input type="text" id="f-mother-designation" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Education</label><input type="text" id="f-mother-education" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Contact No.</label><input type="tel" id="f-mother-contact" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">NID</label><input type="text" id="f-mother-nid" class="finput"></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Office Address / Unit</label><input type="text" id="f-mother-office" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Yearly Income (BDT)</label><input type="text" id="f-mother-income" class="finput"></div>
           </div>
-          <div class="shrink-0 w-32">
-            <label class="flbl mb-1.5 block">Mother's Photo</label>
-            <div id="mother-photo-preview" onclick="document.getElementById('mother-photo-input').click()"
-              class="w-28 h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all overflow-hidden">
-              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i>
-              <span class="text-[9px] text-slate-400 mt-1">Click to upload</span>
+          <div class="shrink-0"><label class="flbl mb-2 block">Mother's Photo</label>
+            <div id="mother-photo-preview" onclick="document.getElementById('mother-photo-input').click()" class="photo-upload-box">
+              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i><span class="text-[9px] text-slate-400 mt-1">Click</span>
             </div>
             <input type="file" id="mother-photo-input" accept="image/*" class="hidden" onchange="handlePhoto(this,'mother-photo-preview','f-mother-photo')">
             <input type="hidden" id="f-mother-photo">
@@ -330,32 +270,22 @@
         </div>
       </div>
 
-      <!-- Section: Guardian -->
+      <!-- Guardian -->
       <div id="s-guardian" class="fsec hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Local Guardian's Details</p>
-        <div class="flex gap-6">
-          <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="space-y-1.5"><label class="flbl">Guardian's Name</label>
-              <input type="text" id="f-guardian-name" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Profession / Occupation</label>
-              <input type="text" id="f-guardian-profession" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Designation / Rank</label>
-              <input type="text" id="f-guardian-designation" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Education</label>
-              <input type="text" id="f-guardian-education" class="finput"></div>
-            <div class="space-y-1.5"><label class="flbl">Contact No.</label>
-              <input type="tel" id="f-guardian-contact" class="finput" placeholder="+880..."></div>
-            <div class="space-y-1.5"><label class="flbl">Relation to Student</label>
-              <input type="text" id="f-guardian-relation" class="finput" placeholder="e.g. Father, Uncle"></div>
-            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Office Address / Unit</label>
-              <input type="text" id="f-guardian-office" class="finput"></div>
+        <p class="sec-lbl">Local Guardian's Details</p>
+        <div class="flex gap-6 flex-wrap">
+          <div class="flex-1 min-w-[260px] grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="space-y-1.5"><label class="flbl">Guardian's Name</label><input type="text" id="f-guardian-name" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Profession</label><input type="text" id="f-guardian-profession" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Designation / Rank</label><input type="text" id="f-guardian-designation" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Education</label><input type="text" id="f-guardian-education" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Contact No.</label><input type="tel" id="f-guardian-contact" class="finput"></div>
+            <div class="space-y-1.5"><label class="flbl">Relation to Student</label><input type="text" id="f-guardian-relation" class="finput" placeholder="e.g. Uncle"></div>
+            <div class="md:col-span-2 space-y-1.5"><label class="flbl">Office Address</label><input type="text" id="f-guardian-office" class="finput"></div>
           </div>
-          <div class="shrink-0 w-32">
-            <label class="flbl mb-1.5 block">Guardian's Photo</label>
-            <div id="guardian-photo-preview" onclick="document.getElementById('guardian-photo-input').click()"
-              class="w-28 h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all overflow-hidden">
-              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i>
-              <span class="text-[9px] text-slate-400 mt-1">Click to upload</span>
+          <div class="shrink-0"><label class="flbl mb-2 block">Guardian's Photo</label>
+            <div id="guardian-photo-preview" onclick="document.getElementById('guardian-photo-input').click()" class="photo-upload-box">
+              <i data-lucide="camera" class="h-6 w-6 text-slate-300"></i><span class="text-[9px] text-slate-400 mt-1">Click</span>
             </div>
             <input type="file" id="guardian-photo-input" accept="image/*" class="hidden" onchange="handlePhoto(this,'guardian-photo-preview','f-guardian-photo')">
             <input type="hidden" id="f-guardian-photo">
@@ -363,17 +293,362 @@
         </div>
       </div>
 
-      <!-- Bottom save bar -->
-      <div class="mt-4 flex justify-end gap-3">
+      <div class="mt-4 flex justify-end gap-3 flex-wrap">
         <button onclick="loadDashboard()" class="px-5 py-2.5 text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 rounded-xl transition-all">Cancel</button>
-        <button onclick="printCurrent()" class="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl bg-emerald-600 text-white hover:bg-black transition-all">
+        <button onclick="printAdmitCard()" class="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl text-white transition-all" style="background:#7c3aed">
+          <i data-lucide="id-card" class="h-3.5 w-3.5"></i> Admit Card
+        </button>
+        <button onclick="printForm()" class="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl bg-emerald-600 text-white hover:bg-black transition-all">
           <i data-lucide="printer" class="h-3.5 w-3.5"></i> Print Form
         </button>
-        <button onclick="saveApplication()" class="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl bg-blue-600 text-white hover:bg-black transition-all shadow-sm">
-          <i data-lucide="save" class="h-3.5 w-3.5"></i> Save Application
+        <button onclick="saveApplication()" class="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl bg-blue-600 text-white hover:bg-black transition-all">
+          <i data-lucide="save" class="h-3.5 w-3.5"></i> Save
         </button>
       </div>
     </div>
+
+    <!-- ══ Admin Panel ══ -->
+    <div id="view-admin" class="hidden p-5">
+      <div class="flex items-center gap-3 mb-4">
+        <button onclick="loadDashboard()" class="nav-btn"><i data-lucide="arrow-left" class="h-3.5 w-3.5"></i> Back</button>
+        <h2 class="font-black text-slate-800 text-base">Admin Settings</h2>
+      </div>
+
+      <!-- Admin tab bar -->
+      <div class="flex gap-0.5 mb-5 bg-slate-100 p-1 rounded-xl w-fit">
+        <button class="atab active" onclick="showAdminTab('at-index',this)">
+          <i data-lucide="hash" class="h-3.5 w-3.5"></i> Index Pattern
+        </button>
+        <button class="atab" onclick="showAdminTab('at-form',this)">
+          <i data-lucide="layout" class="h-3.5 w-3.5"></i> Form Designer
+        </button>
+        <button class="atab" onclick="showAdminTab('at-admit',this)">
+          <i data-lucide="id-card" class="h-3.5 w-3.5"></i> Admit Card
+        </button>
+        <button class="atab" onclick="showAdminTab('at-counters',this)">
+          <i data-lucide="bar-chart-2" class="h-3.5 w-3.5"></i> Counters
+        </button>
+      </div>
+
+      <!-- Tab: Index Pattern -->
+      <div id="at-index" class="atab-panel">
+        <div class="max-w-2xl mx-auto space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+            <div class="space-y-1.5">
+              <label class="flbl">Pattern String</label>
+              <input type="text" id="ip-pattern" class="finput font-mono text-base" placeholder="{YY}{CLASS}{SEQ4}">
+              <div class="flex flex-wrap gap-1.5 mt-2">
+                <span class="token-chip" onclick="insertToken('{YY}')">{YY}</span>
+                <span class="token-chip" onclick="insertToken('{YYYY}')">{YYYY}</span>
+                <span class="token-chip" onclick="insertToken('{CLASS}')">{CLASS}</span>
+                <span class="token-chip" onclick="insertToken('{CAT}')">{CAT}</span>
+                <span class="token-chip" onclick="insertToken('{SEQ3}')">{SEQ3}</span>
+                <span class="token-chip" onclick="insertToken('{SEQ4}')">{SEQ4}</span>
+                <span class="token-chip" onclick="insertToken('{SEQ5}')">{SEQ5}</span>
+              </div>
+              <p class="text-[10px] text-slate-400">YY/YYYY = year · CLASS = class code from table · CAT = category code · SEQ = counter</p>
+            </div>
+
+            <div class="bg-blue-50 rounded-xl p-4 space-y-3">
+              <p class="flbl text-blue-700">Live Preview</p>
+              <div class="flex flex-wrap gap-3 items-center">
+                <select id="ip-test-class" class="finput-sm" onchange="updateIndexPreview()">
+                  <option>Nursery</option><option>KG</option><option>One</option><option>Two</option>
+                  <option>Three</option><option>Four</option><option>Five</option><option>Six</option>
+                  <option>Seven</option><option>Eight</option><option>Nine</option><option>Ten</option>
+                  <option>Eleven</option><option>Twelve</option>
+                </select>
+                <select id="ip-test-cat" class="finput-sm" onchange="updateIndexPreview()">
+                  <option>Army</option><option>Civil</option><option>Defence</option>
+                  <option>CCPC Teacher</option><option>Staff</option>
+                </select>
+                <select id="ip-test-session" class="finput-sm" onchange="updateIndexPreview()">
+                  <option>2026</option><option>2025</option><option>2027</option>
+                </select>
+                <span class="text-sm text-slate-500 font-bold">→</span>
+                <code id="ip-preview" class="text-lg font-black text-blue-700 bg-white px-3 py-1 rounded-lg shadow-sm border border-blue-100">—</code>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <p class="flbl">Class Codes</p>
+              <div id="class-codes-table" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
+            </div>
+            <div class="space-y-2">
+              <p class="flbl">Category Codes</p>
+              <div id="cat-codes-table" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+            </div>
+
+            <button onclick="saveIndexSettings()" class="w-full py-3 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all">
+              Save Index Settings
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Form Designer -->
+      <div id="at-form" class="atab-panel hidden">
+        <div class="designer-layout">
+          <div class="designer-settings" id="form-designer-panel">
+
+            <details open class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="type" class="h-3.5 w-3.5 shrink-0"></i> Header</summary>
+              <div class="dgroup-body space-y-2">
+                <label class="flbl">Logo URL</label><input type="text" id="fd-logo-url" class="finput finput-sm">
+                <label class="flbl">College Name</label><input type="text" id="fd-college-name" class="finput finput-sm">
+                <label class="flbl">Address</label><input type="text" id="fd-address" class="finput finput-sm">
+                <div class="flex gap-2">
+                  <div class="flex-1"><label class="flbl">Phone</label><input type="text" id="fd-phone" class="finput finput-sm"></div>
+                  <div class="flex-1"><label class="flbl">Website</label><input type="text" id="fd-website" class="finput finput-sm"></div>
+                </div>
+                <label class="flbl">Form Title</label><input type="text" id="fd-form-title" class="finput finput-sm">
+              </div>
+            </details>
+
+            <details open class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="sliders-horizontal" class="h-3.5 w-3.5 shrink-0"></i> Index Bar</summary>
+              <div class="dgroup-body space-y-3">
+                <div class="flex gap-3">
+                  <div class="flex-1"><label class="flbl">Background</label><input type="color" id="fd-index-bg" class="color-picker"></div>
+                  <div class="flex-1"><label class="flbl">Text</label><input type="color" id="fd-index-text" class="color-picker"></div>
+                </div>
+                <div>
+                  <label class="flbl mb-1.5 block">Visible Fields</label>
+                  <div class="space-y-1">
+                    <label class="toggle-lbl"><input type="checkbox" id="fd-idx-tracking"> Tracking ID</label>
+                    <label class="toggle-lbl"><input type="checkbox" id="fd-idx-index"> Index ID</label>
+                    <label class="toggle-lbl"><input type="checkbox" id="fd-idx-class"> Class</label>
+                    <label class="toggle-lbl"><input type="checkbox" id="fd-idx-category"> Category</label>
+                    <label class="toggle-lbl"><input type="checkbox" id="fd-idx-version"> Version</label>
+                    <label class="toggle-lbl"><input type="checkbox" id="fd-idx-quota"> Quota</label>
+                  </div>
+                </div>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="palette" class="h-3.5 w-3.5 shrink-0"></i> Section Colors</summary>
+              <div class="dgroup-body">
+                <div class="flex gap-3">
+                  <div class="flex-1"><label class="flbl">Header BG</label><input type="color" id="fd-sec-bg" class="color-picker"></div>
+                  <div class="flex-1"><label class="flbl">Header Text</label><input type="color" id="fd-sec-text" class="color-picker"></div>
+                </div>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="layers" class="h-3.5 w-3.5 shrink-0"></i> Sections</summary>
+              <div class="dgroup-body space-y-3">
+                <div class="sec-group"><label class="toggle-lbl font-bold"><input type="checkbox" id="fd-show-student"> Student Section</label>
+                  <input type="text" id="fd-student-label" class="finput finput-sm mt-1">
+                  <label class="toggle-lbl mt-1"><input type="checkbox" id="fd-show-student-photo"> Show Photo</label></div>
+                <div class="sec-group"><label class="toggle-lbl font-bold"><input type="checkbox" id="fd-show-father"> Father Section</label>
+                  <input type="text" id="fd-father-label" class="finput finput-sm mt-1">
+                  <label class="toggle-lbl mt-1"><input type="checkbox" id="fd-show-father-photo"> Show Photo</label></div>
+                <div class="sec-group"><label class="toggle-lbl font-bold"><input type="checkbox" id="fd-show-mother"> Mother Section</label>
+                  <input type="text" id="fd-mother-label" class="finput finput-sm mt-1">
+                  <label class="toggle-lbl mt-1"><input type="checkbox" id="fd-show-mother-photo"> Show Photo</label></div>
+                <div class="sec-group"><label class="toggle-lbl font-bold"><input type="checkbox" id="fd-show-guardian"> Guardian Section</label>
+                  <input type="text" id="fd-guardian-label" class="finput finput-sm mt-1">
+                  <label class="toggle-lbl mt-1"><input type="checkbox" id="fd-show-guardian-photo"> Show Photo</label></div>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="list" class="h-3.5 w-3.5 shrink-0"></i> Student Fields</summary>
+              <div class="dgroup-body fields-grid">
+                <label class="toggle-lbl"><input type="checkbox" id="sff-name-en"> Name (EN)</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-name-bn"> Name (BN)</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-dob"> Date of Birth</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-blood"> Blood Group</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-gender"> Gender</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-religion"> Religion</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-birth-reg"> Birth Reg.</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-nationality"> Nationality</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-emergency"> Emergency</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-height"> Height</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-co-curr"> Co-curricular</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-last-inst"> Last Institute</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-last-cls"> Last Class/Ver</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-present"> Present Address</label>
+                <label class="toggle-lbl"><input type="checkbox" id="sff-permanent"> Permanent Addr.</label>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="list" class="h-3.5 w-3.5 shrink-0"></i> Father Fields</summary>
+              <div class="dgroup-body fields-grid">
+                <label class="toggle-lbl"><input type="checkbox" id="fff-name"> Name</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-prof"> Profession</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-desig"> Designation</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-edu"> Education</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-contact"> Contact</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-nid"> NID</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-office"> Office Addr.</label>
+                <label class="toggle-lbl"><input type="checkbox" id="fff-income"> Income</label>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="list" class="h-3.5 w-3.5 shrink-0"></i> Mother Fields</summary>
+              <div class="dgroup-body fields-grid">
+                <label class="toggle-lbl"><input type="checkbox" id="mff-name"> Name</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-prof"> Profession</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-desig"> Designation</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-edu"> Education</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-contact"> Contact</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-nid"> NID</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-office"> Office Addr.</label>
+                <label class="toggle-lbl"><input type="checkbox" id="mff-income"> Income</label>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="list" class="h-3.5 w-3.5 shrink-0"></i> Guardian Fields</summary>
+              <div class="dgroup-body fields-grid">
+                <label class="toggle-lbl"><input type="checkbox" id="gff-name"> Name</label>
+                <label class="toggle-lbl"><input type="checkbox" id="gff-prof"> Profession</label>
+                <label class="toggle-lbl"><input type="checkbox" id="gff-desig"> Designation</label>
+                <label class="toggle-lbl"><input type="checkbox" id="gff-edu"> Education</label>
+                <label class="toggle-lbl"><input type="checkbox" id="gff-contact"> Contact</label>
+                <label class="toggle-lbl"><input type="checkbox" id="gff-relation"> Relation</label>
+                <label class="toggle-lbl"><input type="checkbox" id="gff-office"> Office Addr.</label>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="file-text" class="h-3.5 w-3.5 shrink-0"></i> Terms &amp; Footer</summary>
+              <div class="dgroup-body space-y-2">
+                <label class="toggle-lbl"><input type="checkbox" id="fd-show-terms"> Show Terms Box</label>
+                <textarea id="fd-terms-text" class="finput finput-sm h-20 resize-none" placeholder="Terms text…"></textarea>
+                <label class="flbl">Footer Text</label><input type="text" id="fd-footer" class="finput finput-sm">
+                <label class="flbl">Signature Label</label><input type="text" id="fd-sign-label" class="finput finput-sm">
+              </div>
+            </details>
+
+            <div class="p-4 space-y-2">
+              <button onclick="saveFormDesign()" class="w-full py-3 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all">Save Form Design</button>
+              <button onclick="resetFormDesign()" class="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 rounded-xl transition-all">Reset to Default</button>
+            </div>
+          </div>
+
+          <!-- Form Preview -->
+          <div class="designer-preview">
+            <div class="designer-preview-bar">
+              <span>Form Preview</span>
+              <button onclick="updateFormPreview()" class="preview-refresh-btn"><i data-lucide="refresh-cw" class="h-3 w-3"></i> Refresh</button>
+            </div>
+            <iframe id="form-preview-iframe" class="preview-iframe"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Admit Card Designer -->
+      <div id="at-admit" class="atab-panel hidden">
+        <div class="designer-layout">
+          <div class="designer-settings" id="admit-designer-panel">
+
+            <details open class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="type" class="h-3.5 w-3.5 shrink-0"></i> Header</summary>
+              <div class="dgroup-body space-y-2">
+                <label class="flbl">Logo URL</label><input type="text" id="ad-logo-url" class="finput finput-sm">
+                <label class="flbl">College Name</label><input type="text" id="ad-college-name" class="finput finput-sm">
+                <label class="flbl">Address</label><input type="text" id="ad-address" class="finput finput-sm">
+                <label class="flbl">Card Title</label><input type="text" id="ad-card-title" class="finput finput-sm">
+              </div>
+            </details>
+
+            <details open class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="palette" class="h-3.5 w-3.5 shrink-0"></i> Banner Colors</summary>
+              <div class="dgroup-body">
+                <div class="flex gap-3">
+                  <div class="flex-1"><label class="flbl">Background</label><input type="color" id="ad-banner-bg" class="color-picker"></div>
+                  <div class="flex-1"><label class="flbl">Text</label><input type="color" id="ad-banner-text" class="color-picker"></div>
+                </div>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="list" class="h-3.5 w-3.5 shrink-0"></i> Visible Fields</summary>
+              <div class="dgroup-body fields-grid">
+                <label class="toggle-lbl"><input type="checkbox" id="adf-tracking"> Tracking ID</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-index"> Index ID</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-name-en"> Name (EN)</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-name-bn"> Name (BN)</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-class"> Class</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-category"> Category</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-version"> Version</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-session"> Session</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-dob"> Date of Birth</label>
+                <label class="toggle-lbl"><input type="checkbox" id="adf-blood"> Blood Group</label>
+                <label class="toggle-lbl"><input type="checkbox" id="ad-show-photo"> Show Photo</label>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="calendar" class="h-3.5 w-3.5 shrink-0"></i> Exam Info</summary>
+              <div class="dgroup-body space-y-2">
+                <label class="flbl">Exam Center</label><input type="text" id="ad-exam-center" class="finput finput-sm">
+                <div class="flex gap-2">
+                  <div class="flex-1"><label class="flbl">Date</label><input type="text" id="ad-exam-date" class="finput finput-sm" placeholder="e.g. 15 Jul 2026"></div>
+                  <div class="flex-1"><label class="flbl">Time</label><input type="text" id="ad-exam-time" class="finput finput-sm" placeholder="10:00 AM"></div>
+                </div>
+                <label class="flbl">Instructions</label>
+                <textarea id="ad-instructions" class="finput finput-sm h-20 resize-none"></textarea>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="pen-line" class="h-3.5 w-3.5 shrink-0"></i> Signatures</summary>
+              <div class="dgroup-body space-y-2">
+                <div class="flex gap-2 items-center">
+                  <input type="checkbox" id="ad-sig1-show" class="w-4 h-4 shrink-0">
+                  <input type="text" id="ad-sig1-label" class="finput finput-sm flex-1" placeholder="Invigilator's Signature">
+                </div>
+                <div class="flex gap-2 items-center">
+                  <input type="checkbox" id="ad-sig2-show" class="w-4 h-4 shrink-0">
+                  <input type="text" id="ad-sig2-label" class="finput finput-sm flex-1" placeholder="Controller of Examination">
+                </div>
+              </div>
+            </details>
+
+            <details class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="file-text" class="h-3.5 w-3.5 shrink-0"></i> Footer</summary>
+              <div class="dgroup-body">
+                <input type="text" id="ad-footer" class="finput finput-sm">
+              </div>
+            </details>
+
+            <div class="p-4 space-y-2">
+              <button onclick="saveAdmitDesign()" class="w-full py-3 bg-violet-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all">Save Admit Card Design</button>
+              <button onclick="resetAdmitDesign()" class="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 rounded-xl transition-all">Reset to Default</button>
+            </div>
+          </div>
+
+          <!-- Admit Card Preview -->
+          <div class="designer-preview">
+            <div class="designer-preview-bar">
+              <span>Admit Card Preview</span>
+              <button onclick="updateAdmitPreview()" class="preview-refresh-btn"><i data-lucide="refresh-cw" class="h-3 w-3"></i> Refresh</button>
+            </div>
+            <iframe id="admit-preview-iframe" class="preview-iframe"></iframe>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Counters -->
+      <div id="at-counters" class="atab-panel hidden">
+        <div class="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div class="flex items-center justify-between mb-4">
+            <p class="sec-lbl">Index ID Counters</p>
+            <button onclick="loadCounters()" class="nav-btn text-xs"><i data-lucide="refresh-cw" class="h-3.5 w-3.5"></i> Refresh</button>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">Each row shows how many Index IDs have been assigned for a year+class combination. Reset only if you need to restart numbering.</p>
+          <div id="counters-table">Loading…</div>
+        </div>
+      </div>
+
+    </div><!-- /view-admin -->
 
   </main>
 </div>

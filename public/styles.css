@@ -2,108 +2,147 @@
    CCPC Admission — UI Styles
    ═══════════════════════════════════════════════════════ */
 
-/* ─── Toast animation ─── */
 @keyframes slideIn {
   from { opacity:0; transform:translateX(20px); }
   to   { opacity:1; transform:translateX(0); }
 }
-.animate-toast { animation: slideIn .25s ease-out; }
+.animate-toast { animation: slideIn .22s ease-out; }
 
-/* ─── Form inputs / labels ─── */
+/* ─── Form inputs ─── */
 .finput {
-  display:block;
-  width:100%;
-  padding: 8px 14px;
-  background:#f8fafc;
-  border:1.5px solid #e2e8f0;
-  border-radius:10px;
-  font-size:13px;
-  font-weight:600;
-  color:#1e293b;
-  outline:none;
-  transition: border-color .15s, box-shadow .15s;
-  font-family: inherit;
+  display:block; width:100%; padding:8px 12px;
+  background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px;
+  font-size:13px; font-weight:600; color:#1e293b; outline:none;
+  transition:border-color .15s, box-shadow .15s; font-family:inherit;
 }
-.finput:focus {
-  border-color:#2563eb;
-  box-shadow:0 0 0 3px rgba(37,99,235,.12);
-  background:#fff;
-}
+.finput:focus { border-color:#2563eb; box-shadow:0 0 0 3px rgba(37,99,235,.1); background:#fff; }
 .finput::placeholder { color:#94a3b8; font-weight:500; }
+.finput-sm { padding:5px 10px; font-size:12px; font-weight:600; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; color:#1e293b; outline:none; }
+.finput-sm:focus { border-color:#2563eb; }
 
-.flbl {
-  font-size:10px;
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  color:#64748b;
+.flbl { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#64748b; }
+.sec-lbl { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.1em; color:#64748b; }
+
+/* ─── Nav buttons ─── */
+.nav-btn {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:6px 11px; font-size:10px; font-weight:900;
+  text-transform:uppercase; letter-spacing:.07em;
+  border-radius:10px; border:none; background:#f1f5f9;
+  color:#475569; cursor:pointer; transition:all .15s; white-space:nowrap;
 }
+.nav-btn:hover { background:#e2e8f0; color:#0f172a; }
+.nav-btn-primary { background:#2563eb; color:#fff; box-shadow:0 1px 4px rgba(37,99,235,.2); }
+.nav-btn-primary:hover { background:#000; }
+.nav-btn-danger { background:#fef2f2; color:#ef4444; }
+.nav-btn-danger:hover { background:#fee2e2; }
 
-/* ─── Section tabs ─── */
+/* ─── Section tabs (form) ─── */
 .ftab {
-  padding:6px 14px;
-  font-size:10px;
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  border-radius:10px;
-  border:none;
-  background:#f1f5f9;
-  color:#64748b;
-  cursor:pointer;
-  white-space:nowrap;
-  transition: background .15s, color .15s;
+  padding:6px 14px; font-size:10px; font-weight:900;
+  text-transform:uppercase; letter-spacing:.07em; border-radius:10px;
+  border:none; background:#f1f5f9; color:#64748b; cursor:pointer;
+  transition:all .15s; white-space:nowrap;
 }
 .ftab:hover { background:#e2e8f0; color:#1e293b; }
 .ftab.active { background:#2563eb; color:#fff; }
 
-/* ─── Status pill / select ─── */
+/* ─── Admin tabs ─── */
+.atab {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:7px 14px; font-size:10px; font-weight:900;
+  text-transform:uppercase; letter-spacing:.06em; border-radius:9px;
+  border:none; background:transparent; color:#64748b; cursor:pointer;
+  transition:all .15s; white-space:nowrap;
+}
+.atab:hover { background:#e2e8f0; }
+.atab.active { background:#fff; color:#1e293b; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+
+/* ─── Status pill ─── */
 .status-pill {
-  display:inline-block;
-  padding:3px 10px;
-  font-size:9.5px;
-  font-weight:900;
-  text-transform:uppercase;
-  letter-spacing:.05em;
-  border-radius:20px;
-  border:none;
-  outline:none;
-  cursor:pointer;
-  appearance:none;
-  -webkit-appearance:none;
+  padding:3px 10px; font-size:9.5px; font-weight:900;
+  text-transform:uppercase; letter-spacing:.05em; border-radius:20px;
+  border:none; outline:none; cursor:pointer; appearance:none;
 }
 
-/* ─── Action buttons in table ─── */
+/* ─── Table ─── */
+.tbl-hdr { padding:10px 16px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.07em; color:#64748b; }
 .action-btn {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:30px;
-  height:30px;
-  border-radius:8px;
-  border:none;
-  background:transparent;
-  color:#64748b;
-  cursor:pointer;
-  transition: background .15s, color .15s;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:30px; height:30px; border-radius:8px; border:none;
+  background:transparent; color:#64748b; cursor:pointer; transition:all .15s;
 }
 .action-btn:hover { background:#f1f5f9; color:#1e293b; }
 
 /* ─── Stat chips ─── */
-.stat-chip {
-  font-size:10px;
-  font-weight:700;
-  color:#64748b;
-  background:#f1f5f9;
-  border-radius:8px;
-  padding:3px 9px;
+.stat-chip { font-size:10px; font-weight:700; color:#64748b; background:#f1f5f9; border-radius:8px; padding:3px 9px; }
+
+/* ─── Photo upload ─── */
+.photo-upload-box {
+  width:112px; height:126px; border:2px dashed #cbd5e1; border-radius:12px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  cursor:pointer; transition:all .15s; overflow:hidden;
 }
+.photo-upload-box:hover { border-color:#3b82f6; background:#eff6ff; }
+
+/* ─── Token chips (index pattern) ─── */
+.token-chip {
+  display:inline-block; padding:3px 10px; background:#e0e7ff; color:#3730a3;
+  font-size:10px; font-weight:900; font-family:monospace; border-radius:6px;
+  cursor:pointer; transition:all .15s;
+}
+.token-chip:hover { background:#3730a3; color:#fff; }
+
+/* ─── Designer layout ─── */
+.designer-layout {
+  display:flex; gap:0; min-height: calc(100vh - 190px);
+  background:#fff; border:1px solid #e2e8f0; border-radius:16px;
+  overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.06);
+}
+.designer-settings {
+  width:300px; flex-shrink:0; border-right:1px solid #e2e8f0;
+  overflow-y:auto; background:#fafafa;
+}
+.designer-preview { flex:1; display:flex; flex-direction:column; min-width:0; background:#f0f0f0; }
+.designer-preview-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 14px; background:#fff; border-bottom:1px solid #e2e8f0;
+  font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; color:#64748b;
+}
+.preview-refresh-btn {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.07em;
+  color:#2563eb; background:none; border:none; cursor:pointer; transition:color .15s;
+}
+.preview-refresh-btn:hover { color:#000; }
+.preview-iframe { flex:1; width:100%; border:none; }
+
+/* ─── Designer accordion groups ─── */
+.dgroup { border-bottom:1px solid #e2e8f0; }
+.dgroup-hdr {
+  display:flex; align-items:center; gap:7px; padding:10px 14px;
+  font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.07em;
+  color:#475569; cursor:pointer; list-style:none; user-select:none;
+  background:#fafafa; transition:background .1s;
+}
+.dgroup-hdr:hover { background:#f1f5f9; }
+.dgroup-hdr::-webkit-details-marker { display:none; }
+.dgroup[open] .dgroup-hdr { color:#1e293b; background:#f8fafc; }
+.dgroup-body { padding:10px 14px; background:#fff; }
+
+/* ─── Toggle labels ─── */
+.toggle-lbl { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:#475569; cursor:pointer; }
+.toggle-lbl input[type=checkbox] { width:14px; height:14px; accent-color:#2563eb; cursor:pointer; }
+
+/* ─── Color picker ─── */
+.color-picker { width:100%; height:34px; border:1.5px solid #e2e8f0; border-radius:8px; cursor:pointer; padding:2px; }
+
+/* ─── Section groups in designer ─── */
+.sec-group { padding:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+.fields-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width:4px; height:4px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:2px; }
 ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
-
-/* ─── Screen transitions ─── */
-#login-screen, #app-screen { transition: opacity .2s; }

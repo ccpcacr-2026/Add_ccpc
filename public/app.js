@@ -4,662 +4,864 @@
 
 let AUTH_TOKEN = null;
 let allApplications = [];
-let currentId = null; // editing record ID (null = new)
+let currentId = null;
+let currentFormSettings = null;
+let currentAdmitSettings = null;
+let currentIndexSettings = null;
 
-/* ─── Utility ─────────────────────────────────────────── */
-function show(el) { if (el) { el.classList.remove('hidden'); el.classList.add('flex'); } }
-function hide(el) { if (el) { el.classList.add('hidden'); el.classList.remove('flex'); } }
-function showEl(id) { show(document.getElementById(id)); }
-function hideEl(id) { hide(document.getElementById(id)); }
-function setLoading(on) { const el = document.getElementById('loading'); on ? show(el) : hide(el); }
-function v(id) { const e = document.getElementById(id); return e ? e.value.trim() : ''; }
-function setV(id, val) { const e = document.getElementById(id); if (e) e.value = val || ''; }
-
-function toast(msg, type = 'info') {
-  const colors = { success: 'bg-emerald-500', error: 'bg-red-500', info: 'bg-blue-600', warn: 'bg-amber-500' };
-  const icons  = { success: 'check-circle', error: 'x-circle', info: 'info', warn: 'alert-triangle' };
-  const t = document.createElement('div');
-  t.className = `flex items-center gap-3 px-4 py-3 rounded-2xl text-white text-xs font-bold shadow-xl max-w-xs ${colors[type]} animate-toast`;
-  t.innerHTML = `<i data-lucide="${icons[type]}" class="h-4 w-4 shrink-0"></i><span>${msg}</span>`;
-  document.getElementById('toast-container').appendChild(t);
-  if (typeof lucide !== 'undefined') lucide.createIcons({ el: t });
-  setTimeout(() => t.remove(), 3500);
-}
-
-/* ─── Confirm dialog ─────────────────────────────────── */
-let _confirmResolve = null;
-function openConfirm(msg, okLabel = 'Delete') {
-  document.getElementById('confirmMsg').textContent = msg;
-  document.getElementById('confirmOkBtn').textContent = okLabel;
-  const m = document.getElementById('confirmModal');
-  m.classList.remove('hidden'); m.classList.add('flex');
-  return new Promise(res => { _confirmResolve = res; });
-}
-function closeConfirm(val = false) {
-  const m = document.getElementById('confirmModal');
-  m.classList.add('hidden'); m.classList.remove('flex');
-  if (_confirmResolve) { _confirmResolve(val); _confirmResolve = null; }
-}
-document.getElementById('confirmOkBtn').onclick = () => closeConfirm(true);
-
-/* ─── API ────────────────────────────────────────────── */
-async function api(action, payload = {}) {
-  const res = await fetch('/api/exec', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, payload, token: AUTH_TOKEN })
-  });
-  return res.json();
-}
-
-/* ─── Auth ───────────────────────────────────────────── */
-document.getElementById('loginForm').addEventListener('submit', async e => {
-  e.preventDefault();
-  setLoading(true);
-  const pass = document.getElementById('loginPass').value;
-  const res = await fetch('/api/exec', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'login', payload: { password: pass } })
-  });
-  const data = await res.json();
-  setLoading(false);
-  if (data.token) {
-    AUTH_TOKEN = data.token;
-    sessionStorage.setItem('admission_token', AUTH_TOKEN);
-    document.getElementById('loginError').classList.add('hidden');
-    enterApp();
-  } else {
-    document.getElementById('loginError').classList.remove('hidden');
-  }
-});
-
-function logout() {
-  AUTH_TOKEN = null;
-  sessionStorage.removeItem('admission_token');
-  hideEl('app-screen');
-  showEl('login-screen');
-  document.getElementById('loginPass').value = '';
-}
-
-function enterApp() {
-  hideEl('login-screen');
-  const as = document.getElementById('app-screen');
-  as.classList.remove('hidden');
-  as.classList.add('flex');
-  loadDashboard();
-}
-
-/* ─── Init ───────────────────────────────────────────── */
-window.addEventListener('DOMContentLoaded', () => {
-  if (typeof lucide !== 'undefined') lucide.createIcons();
-  const saved = sessionStorage.getItem('admission_token');
-  if (saved) {
-    AUTH_TOKEN = saved;
-    enterApp();
-  }
-});
-
-/* ─── Dashboard ──────────────────────────────────────── */
-async function loadDashboard() {
-  showView('view-dashboard');
-  document.getElementById('btn-dashboard').classList.add('hidden');
-  document.getElementById('btn-new').classList.remove('hidden');
-  document.getElementById('btn-new').classList.add('flex');
-  setLoading(true);
-  const res = await api('listApplications', {});
-  setLoading(false);
-  if (res.error) { toast(res.error, 'error'); return; }
-  allApplications = res.applications || [];
-  renderTable(allApplications);
-  loadStats();
-}
-
-async function loadStats() {
-  const res = await api('getStats', {});
-  if (!res.stats) return;
-  const s = res.stats;
-  const cont = document.getElementById('topbar-stats');
-  cont.innerHTML = `
-    <span class="stat-chip">Total: <b>${s.total}</b></span>
-    <span class="stat-chip text-amber-600">Pending: <b>${s.pending}</b></span>
-    <span class="stat-chip text-emerald-600">Admitted: <b>${s.admitted}</b></span>
-    <span class="stat-chip text-red-500">Rejected: <b>${s.rejected}</b></span>`;
-}
-
-const STATUS_COLORS = {
-  'Pending':        'bg-amber-100 text-amber-700',
-  'Called for Test':'bg-blue-100 text-blue-700',
-  'Admitted':       'bg-emerald-100 text-emerald-700',
-  'Rejected':       'bg-red-100 text-red-700'
+/* ─── Defaults ──────────────────────────────────────── */
+const DEFAULT_FORM = {
+  header: {
+    logoUrl: 'https://lh3.googleusercontent.com/d/1Gb6gpcw1moYPAh9hSZ7cEQ5vgXxHj8LB',
+    collegeName: 'Chattogram Cantonment Public College',
+    address: 'Zahir Raihan Road, Cantonment, Chattogram — 4220',
+    phone: '031-650500', website: 'ccpc.edu.bd', formTitle: 'APPLICATION FORM',
+  },
+  indexBar: {
+    bgColor: '#1a2b5c', textColor: '#ffffff',
+    fields: { tracking_id: false, index_id: true, class: true, category: true, version: true, quota: true },
+  },
+  sectionHeader: { bgColor: '#e8e8e8', textColor: '#1a2b5c' },
+  sections: {
+    student:  { visible: true,  label: "Applicant's Information",    showPhoto: true },
+    father:   { visible: true,  label: "Father's Details",           showPhoto: true },
+    mother:   { visible: true,  label: "Mother's Details",           showPhoto: true },
+    guardian: { visible: true,  label: "Local Guardian's Details",   showPhoto: true },
+  },
+  studentFields: {
+    name_en: true, name_bn: true, dob: true, blood: true, gender: true, religion: true,
+    birth_reg: true, nationality: true, emergency: true, height: true,
+    co_curr: true, last_inst: true, last_cls: true, present: true, permanent: true,
+  },
+  fatherFields:  { name: true, prof: true, desig: true, edu: true, contact: true, nid: true, office: true, income: true },
+  motherFields:  { name: true, prof: true, desig: true, edu: true, contact: true, nid: true, office: true, income: true },
+  guardianFields:{ name: true, prof: true, desig: true, edu: true, contact: true, relation: true, office: true },
+  terms: { visible: true, text: 'I hereby declare that all information provided in this application is true and correct to the best of my knowledge. Any false information may result in cancellation of admission.\nI agree to abide by all rules and regulations of Chattogram Cantonment Public College.' },
+  footer: 'Chattogram Cantonment Public College — Official Admission Form — Page 1 of 1',
+  signatureLabel: "Guardian's Signature & Date",
 };
 
-function renderTable(apps) {
-  const tbody = document.getElementById('app-table-body');
-  if (!apps.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm">No applications found.</td></tr>';
-    document.getElementById('app-count').textContent = '';
-    return;
-  }
-  document.getElementById('app-count').textContent = `${apps.length} record${apps.length > 1 ? 's' : ''}`;
-  tbody.innerHTML = apps.map(a => `
-    <tr class="border-t border-slate-50 hover:bg-slate-50 transition-all cursor-pointer" onclick="loadForm(${a.id})">
+const DEFAULT_ADMIT = {
+  header: {
+    logoUrl: 'https://lh3.googleusercontent.com/d/1Gb6gpcw1moYPAh9hSZ7cEQ5vgXxHj8LB',
+    collegeName: 'Chattogram Cantonment Public College',
+    address: 'Zahir Raihan Road, Cantonment, Chattogram — 4220',
+    cardTitle: 'ADMIT CARD',
+  },
+  bannerBg: '#1a2b5c', bannerText: '#ffffff',
+  showPhoto: true,
+  fields: { tracking_id: true, index_id: true, name_en: true, name_bn: false, class: true, category: true, version: true, session: true, dob: false, blood: false },
+  labels: { tracking_id: 'Roll / Tracking No.', index_id: 'Index ID', name_en: 'Name (English)', name_bn: 'নাম', class: 'Class', category: 'Category', version: 'Version', session: 'Session', dob: 'Date of Birth', blood: 'Blood Group' },
+  examCenter: 'CCPC Examination Hall, Cantonment, Chattogram',
+  examDate: '', examTime: '',
+  instructions: '1. Bring this admit card to every examination.\n2. Report to the examination hall 15 minutes before start time.\n3. No mobile phones or electronic devices are allowed.',
+  sig1: { visible: true, label: "Invigilator's Signature" },
+  sig2: { visible: true, label: "Controller of Examination" },
+  footer: 'Chattogram Cantonment Public College — Computer Generated Admit Card',
+};
+
+const DEFAULT_INDEX = {
+  pattern: '{YY}{CLASS}{SEQ4}',
+  classCodes: { Nursery:'NU',KG:'KG',One:'01',Two:'02',Three:'03',Four:'04',Five:'05',Six:'06',Seven:'07',Eight:'08',Nine:'09',Ten:'10',Eleven:'11',Twelve:'12' },
+  categoryCodes: { Army:'A',Civil:'C',Defence:'D','CCPC Teacher':'T',Staff:'S' },
+};
+
+const DEMO_APP = {
+  tracking_id:'1A2B', index_id:'26NU0001', session:'2026', class:'Nursery', category:'Army', version:'Bangla', quota:'No',
+  name_english:'MD. DEMO STUDENT NAME', name_bangla:'মো. ডেমো ছাত্রের নাম', date_of_birth:'2010-01-15',
+  blood_group:'B+', gender:'Male', religion:'Islam', birth_reg_no:'12345678901234567',
+  nationality:'Bangladeshi', emergency_contact:'01700000000', height:'48', co_curricular:'Football, Drawing',
+  last_institute:'Demo Primary School', last_class:'5', last_version:'Bangla',
+  present_address:'123 Test Road, Cantonment, Chattogram', permanent_address:'Village: Demo, PO: Test, PS: Sample, Chattogram',
+  father_name:'MD. DEMO FATHER', father_profession:'Army Officer', father_designation:'Major', father_education:'MSc Physics',
+  father_contact:'01700000001', father_nid:'1234567890123', father_office_address:'33 Artillery Brigade, Cantonment', father_yearly_income:'1200000',
+  mother_name:'MRS. DEMO MOTHER', mother_profession:'Housewife', mother_designation:'', mother_education:'BA',
+  mother_contact:'01700000002', mother_nid:'9876543210987', mother_office_address:'', mother_yearly_income:'0',
+  guardian_name:'MD. DEMO GUARDIAN', guardian_profession:'Civil Service', guardian_designation:'Executive Officer', guardian_education:'MBA',
+  guardian_contact:'01700000003', guardian_relation:'Uncle', guardian_office_address:'Demo Office, Agrabad, Chattogram',
+  student_photo:null, father_photo:null, mother_photo:null, guardian_photo:null,
+};
+
+/* ─── Utility ─────────────────────────────────────── */
+function setLoading(on) { const el=document.getElementById('loading'); on?show(el):hide(el); }
+function show(el) { if(el){el.classList.remove('hidden');el.classList.add('flex');} }
+function hide(el) { if(el){el.classList.add('hidden');el.classList.remove('flex');} }
+function showEl(id){show(document.getElementById(id));}
+function hideEl(id){hide(document.getElementById(id));}
+function v(id){const e=document.getElementById(id);return e?e.value.trim():'';}
+function setV(id,val){const e=document.getElementById(id);if(e)e.value=val||'';}
+function chk(id){const e=document.getElementById(id);return e?e.checked:false;}
+function setChk(id,val){const e=document.getElementById(id);if(e)e.checked=!!val;}
+function col(id){const e=document.getElementById(id);return e?e.value:'#000000';}
+function setCol(id,val){const e=document.getElementById(id);if(e)e.value=val||'#000000';}
+function fmtDate(d){if(!d)return'';try{const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-BD');}catch{return d;}}
+function debounce(fn,ms){let t;return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);};}
+function deepMerge(def,ovr){const r={...def};for(const k in(ovr||{})){if(ovr[k]&&typeof ovr[k]==='object'&&!Array.isArray(ovr[k]))r[k]=deepMerge(def[k]||{},ovr[k]);else r[k]=ovr[k];}return r;}
+
+function toast(msg,type='info'){
+  const colors={success:'bg-emerald-500',error:'bg-red-500',info:'bg-blue-600',warn:'bg-amber-500'};
+  const icons ={success:'check-circle',error:'x-circle',info:'info',warn:'alert-triangle'};
+  const t=document.createElement('div');
+  t.className=`flex items-center gap-3 px-4 py-3 rounded-2xl text-white text-xs font-bold shadow-xl max-w-xs ${colors[type]} animate-toast pointer-events-auto`;
+  t.innerHTML=`<i data-lucide="${icons[type]}" class="h-4 w-4 shrink-0"></i><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(t);
+  if(typeof lucide!=='undefined')lucide.createIcons({el:t});
+  setTimeout(()=>t.remove(),3500);
+}
+
+let _confirmResolve=null;
+function openConfirm(msg,okLabel='Confirm'){
+  document.getElementById('confirmMsg').textContent=msg;
+  document.getElementById('confirmOkBtn').textContent=okLabel;
+  const m=document.getElementById('confirmModal');m.classList.remove('hidden');m.classList.add('flex');
+  return new Promise(r=>{_confirmResolve=r;});
+}
+function closeConfirm(val=false){
+  const m=document.getElementById('confirmModal');m.classList.add('hidden');m.classList.remove('flex');
+  if(_confirmResolve){_confirmResolve(val);_confirmResolve=null;}
+}
+document.getElementById('confirmOkBtn').onclick=()=>closeConfirm(true);
+
+/* ─── API ────────────────────────────────────────── */
+async function api(action,payload={}){
+  const r=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload,token:AUTH_TOKEN})});
+  return r.json();
+}
+
+/* ─── Auth ───────────────────────────────────────── */
+document.getElementById('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  setLoading(true);
+  const r=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',payload:{password:document.getElementById('loginPass').value}})});
+  const d=await r.json();
+  setLoading(false);
+  if(d.token){AUTH_TOKEN=d.token;sessionStorage.setItem('adm_tk',AUTH_TOKEN);document.getElementById('loginError').classList.add('hidden');enterApp();}
+  else document.getElementById('loginError').classList.remove('hidden');
+});
+function logout(){AUTH_TOKEN=null;sessionStorage.removeItem('adm_tk');hideEl('app-screen');showEl('login-screen');document.getElementById('loginPass').value='';}
+function enterApp(){
+  const as=document.getElementById('app-screen');as.classList.remove('hidden');as.classList.add('flex');
+  hideEl('login-screen');loadDashboard();
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  if(typeof lucide!=='undefined')lucide.createIcons();
+  const t=sessionStorage.getItem('adm_tk');if(t){AUTH_TOKEN=t;enterApp();}
+});
+
+/* ─── View management ────────────────────────────── */
+function showView(id){
+  ['view-dashboard','view-form','view-admin'].forEach(v=>{const el=document.getElementById(v);if(el){el.classList.add('hidden');el.classList.remove('flex');}});
+  document.getElementById(id).classList.remove('hidden');
+}
+function showSection(id,btn){
+  document.querySelectorAll('.fsec').forEach(el=>el.classList.add('hidden'));
+  document.querySelectorAll('.ftab').forEach(el=>el.classList.remove('active'));
+  document.getElementById(id).classList.remove('hidden');btn.classList.add('active');
+}
+function showAdminTab(id,btn){
+  document.querySelectorAll('.atab-panel').forEach(el=>el.classList.add('hidden'));
+  document.querySelectorAll('.atab').forEach(el=>el.classList.remove('active'));
+  document.getElementById(id).classList.remove('hidden');btn.classList.add('active');
+  if(id==='at-index')updateIndexPreview();
+  if(id==='at-form')setTimeout(updateFormPreview,100);
+  if(id==='at-admit')setTimeout(updateAdmitPreview,100);
+  if(id==='at-counters')loadCounters();
+}
+function setTopbarBtn(dashboard,admin,newApp){
+  const d=document.getElementById('btn-dashboard'),a=document.getElementById('btn-admin'),n=document.getElementById('btn-new');
+  function toggle(el,show){if(!el)return;el.classList.toggle('hidden',!show);if(show)el.classList.add('flex');}
+  toggle(d,dashboard);toggle(a,admin);toggle(n,newApp);
+}
+
+/* ─── Dashboard ──────────────────────────────────── */
+async function loadDashboard(){
+  showView('view-dashboard');setTopbarBtn(false,true,true);
+  setLoading(true);const res=await api('listApplications',{});setLoading(false);
+  if(res.error){toast(res.error,'error');return;}
+  allApplications=res.applications||[];renderTable(allApplications);loadStats();
+}
+async function loadStats(){
+  const r=await api('getStats',{});if(!r.stats)return;const s=r.stats;
+  document.getElementById('topbar-stats').innerHTML=`
+    <span class="stat-chip">Total:<b> ${s.total}</b></span>
+    <span class="stat-chip" style="color:#d97706">Pending:<b> ${s.pending}</b></span>
+    <span class="stat-chip" style="color:#059669">Admitted:<b> ${s.admitted}</b></span>
+    <span class="stat-chip" style="color:#dc2626">Rejected:<b> ${s.rejected}</b></span>`;
+}
+
+const STATUS_COLORS={
+  'Pending':'bg-amber-100 text-amber-700','Called for Test':'bg-blue-100 text-blue-700',
+  'Admitted':'bg-emerald-100 text-emerald-700','Rejected':'bg-red-100 text-red-700'
+};
+function renderTable(apps){
+  const tbody=document.getElementById('app-table-body');
+  if(!apps.length){tbody.innerHTML='<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm">No applications found.</td></tr>';document.getElementById('app-count').textContent='';return;}
+  document.getElementById('app-count').textContent=`${apps.length} record${apps.length>1?'s':''}`;
+  tbody.innerHTML=apps.map(a=>`
+    <tr class="border-t border-slate-50 hover:bg-slate-50/80 transition-all cursor-pointer" onclick="loadForm(${a.id})">
+      <td class="px-4 py-3"><span class="font-black text-blue-600 text-xs font-mono">${a.tracking_id||'—'}</span><br><span class="text-[9px] text-slate-400">${a.index_id||''}</span></td>
+      <td class="px-4 py-3"><p class="font-bold text-sm text-slate-800">${a.name_english||'—'}</p><p class="text-[10px] text-slate-400">${a.name_bangla||''}</p></td>
+      <td class="px-4 py-3 hidden md:table-cell text-sm font-bold text-slate-600">${a.class||'—'}</td>
+      <td class="px-4 py-3 hidden md:table-cell text-sm text-slate-600">${a.category||'—'}</td>
+      <td class="px-4 py-3 hidden lg:table-cell text-sm text-slate-500">${a.session||'—'}</td>
       <td class="px-4 py-3">
-        <span class="font-black text-blue-600 text-xs">#${a.tracking_id || '—'}</span>
-        <br><span class="text-[9px] text-slate-400 font-bold">${a.index_id || ''}</span>
-      </td>
-      <td class="px-4 py-3">
-        <p class="font-bold text-sm text-slate-800">${a.name_english || '—'}</p>
-        <p class="text-[10px] text-slate-400">${a.name_bangla || ''}</p>
-      </td>
-      <td class="px-4 py-3 hidden md:table-cell text-sm font-bold text-slate-600">${a.class || '—'}</td>
-      <td class="px-4 py-3 hidden md:table-cell text-sm text-slate-600">${a.category || '—'}</td>
-      <td class="px-4 py-3 hidden lg:table-cell text-sm text-slate-500">${a.session || '—'}</td>
-      <td class="px-4 py-3">
-        <select class="status-pill ${STATUS_COLORS[a.status] || ''}" onchange="changeStatus(event,${a.id})" onclick="event.stopPropagation()">
-          ${['Pending','Called for Test','Admitted','Rejected'].map(s => `<option${s===a.status?' selected':''}>${s}</option>`).join('')}
+        <select class="status-pill ${STATUS_COLORS[a.status]||''}" onchange="changeStatus(event,${a.id})" onclick="event.stopPropagation()">
+          ${['Pending','Called for Test','Admitted','Rejected'].map(s=>`<option${s===a.status?' selected':''}>${s}</option>`).join('')}
         </select>
       </td>
       <td class="px-4 py-3 text-right whitespace-nowrap">
-        <button onclick="event.stopPropagation();loadForm(${a.id})" class="action-btn"><i data-lucide="edit-2" class="h-3.5 w-3.5"></i></button>
-        <button onclick="event.stopPropagation();printFromList(${a.id})" class="action-btn text-emerald-600 hover:bg-emerald-50"><i data-lucide="printer" class="h-3.5 w-3.5"></i></button>
-        <button onclick="event.stopPropagation();deleteApp(${a.id})" class="action-btn text-red-400 hover:bg-red-50"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+        <button onclick="event.stopPropagation();loadForm(${a.id})" class="action-btn" title="Edit"><i data-lucide="edit-2" class="h-3.5 w-3.5"></i></button>
+        <button onclick="event.stopPropagation();printFormById(${a.id})" class="action-btn text-emerald-600" title="Print Form"><i data-lucide="printer" class="h-3.5 w-3.5"></i></button>
+        <button onclick="event.stopPropagation();printAdmitById(${a.id})" class="action-btn" style="color:#7c3aed" title="Admit Card"><i data-lucide="id-card" class="h-3.5 w-3.5"></i></button>
+        <button onclick="event.stopPropagation();deleteApp(${a.id})" class="action-btn text-red-400" title="Delete"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
       </td>
     </tr>`).join('');
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+  if(typeof lucide!=='undefined')lucide.createIcons();
 }
-
-function filterApps() {
-  const q = (document.getElementById('searchInput').value || '').toLowerCase();
-  const sess = document.getElementById('filterSession').value;
-  const cls  = document.getElementById('filterClass').value;
-  const stat = document.getElementById('filterStatus').value;
-  const filtered = allApplications.filter(a => {
-    if (q && !`${a.name_english||''} ${a.tracking_id||''} ${a.index_id||''}`.toLowerCase().includes(q)) return false;
-    if (sess && a.session !== sess) return false;
-    if (cls  && a.class  !== cls)   return false;
-    if (stat && a.status !== stat)  return false;
+function filterApps(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const sess=document.getElementById('filterSession').value;
+  const cls=document.getElementById('filterClass').value;
+  const stat=document.getElementById('filterStatus').value;
+  renderTable(allApplications.filter(a=>{
+    if(q&&!`${a.name_english||''} ${a.tracking_id||''} ${a.index_id||''}`.toLowerCase().includes(q))return false;
+    if(sess&&a.session!==sess)return false;
+    if(cls&&a.class!==cls)return false;
+    if(stat&&a.status!==stat)return false;
     return true;
+  }));
+}
+async function changeStatus(e,id){
+  e.stopPropagation();const status=e.target.value;
+  const r=await api('updateStatus',{id,status});
+  if(r.error){toast(r.error,'error');return;}
+  const app=allApplications.find(a=>a.id===id);if(app)app.status=status;
+  e.target.className=`status-pill ${STATUS_COLORS[status]||''}`;
+  toast('Status updated','success');loadStats();
+}
+async function deleteApp(id){
+  if(!await openConfirm('Delete this application permanently?'))return;
+  setLoading(true);const r=await api('deleteApplication',{id});setLoading(false);
+  if(r.error){toast(r.error,'error');return;}
+  toast('Deleted','success');allApplications=allApplications.filter(a=>a.id!==id);filterApps();loadStats();
+}
+
+/* ─── Form ───────────────────────────────────────── */
+const FORM_FIELDS=[
+  'f-session','f-class','f-category','f-version','f-quota','f-status',
+  'f-name-en','f-name-bn','f-dob','f-blood','f-gender','f-religion','f-birth-reg','f-nationality',
+  'f-emergency','f-height','f-last-class','f-last-version','f-last-institute','f-present-address','f-permanent-address','f-co-curricular',
+  'f-father-name','f-father-profession','f-father-designation','f-father-education','f-father-contact','f-father-nid','f-father-office','f-father-income',
+  'f-mother-name','f-mother-profession','f-mother-designation','f-mother-education','f-mother-contact','f-mother-nid','f-mother-office','f-mother-income',
+  'f-guardian-name','f-guardian-profession','f-guardian-designation','f-guardian-education','f-guardian-contact','f-guardian-relation','f-guardian-office',
+];
+function clearForm(){
+  FORM_FIELDS.forEach(id=>setV(id,''));
+  setV('f-tracking-id','');setV('f-index-id','');
+  ['f-student-photo','f-father-photo','f-mother-photo','f-guardian-photo'].forEach(id=>setV(id,''));
+  ['student','father','mother','guardian'].forEach(r=>{
+    const el=document.getElementById(`${r}-photo-preview`);
+    if(el)el.innerHTML=`<i data-lucide="camera" class="h-6 w-6 text-slate-300"></i><span class="text-[9px] text-slate-400 mt-1">Click to upload</span>`;
   });
-  renderTable(filtered);
+  setV('f-session','2026');setV('f-class','Nursery');setV('f-category','Army');
+  setV('f-version','Bangla');setV('f-quota','No');setV('f-status','Pending');setV('f-nationality','Bangladeshi');
+  if(typeof lucide!=='undefined')lucide.createIcons();
 }
-
-async function changeStatus(e, id) {
-  e.stopPropagation();
-  const status = e.target.value;
-  const res = await api('updateStatus', { id, status });
-  if (res.error) { toast(res.error, 'error'); return; }
-  const app = allApplications.find(a => a.id === id);
-  if (app) app.status = status;
-  const sel = e.target;
-  sel.className = `status-pill ${STATUS_COLORS[status] || ''}`;
-  toast('Status updated', 'success');
-  loadStats();
+function loadNewApplication(){
+  currentId=null;clearForm();showView('view-form');
+  document.getElementById('form-title').textContent='New Application';
+  setTopbarBtn(true,true,false);
+  document.querySelector('.ftab').click();
 }
-
-async function deleteApp(id) {
-  const ok = await openConfirm('Delete this application permanently?');
-  if (!ok) return;
-  setLoading(true);
-  const res = await api('deleteApplication', { id });
-  setLoading(false);
-  if (res.error) { toast(res.error, 'error'); return; }
-  toast('Application deleted', 'success');
-  allApplications = allApplications.filter(a => a.id !== id);
-  filterApps();
-  loadStats();
-}
-
-/* ─── Form ───────────────────────────────────────────── */
-function showView(id) {
-  ['view-dashboard','view-form'].forEach(v => {
-    const el = document.getElementById(v);
-    if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+async function loadForm(id){
+  currentId=id;clearForm();showView('view-form');
+  document.getElementById('form-title').textContent='Edit Application';
+  setTopbarBtn(true,true,false);
+  setLoading(true);const r=await api('getApplication',{id});setLoading(false);
+  const a=r.application;if(!a){toast('Not found','error');return;}
+  setV('f-session',a.session);setV('f-class',a.class);setV('f-category',a.category);
+  setV('f-version',a.version);setV('f-quota',a.quota||'No');setV('f-status',a.status);
+  setV('f-tracking-id',a.tracking_id);setV('f-index-id',a.index_id);
+  setV('f-name-en',a.name_english);setV('f-name-bn',a.name_bangla);
+  setV('f-dob',a.date_of_birth?a.date_of_birth.split('T')[0]:'');
+  setV('f-blood',a.blood_group);setV('f-gender',a.gender);setV('f-religion',a.religion);
+  setV('f-birth-reg',a.birth_reg_no);setV('f-nationality',a.nationality||'Bangladeshi');
+  setV('f-emergency',a.emergency_contact);setV('f-height',a.height);
+  setV('f-last-class',a.last_class);setV('f-last-version',a.last_version);setV('f-last-institute',a.last_institute);
+  setV('f-present-address',a.present_address);setV('f-permanent-address',a.permanent_address);
+  setV('f-co-curricular',a.co_curricular);
+  setV('f-father-name',a.father_name);setV('f-father-profession',a.father_profession);
+  setV('f-father-designation',a.father_designation);setV('f-father-education',a.father_education);
+  setV('f-father-contact',a.father_contact);setV('f-father-nid',a.father_nid);
+  setV('f-father-office',a.father_office_address);setV('f-father-income',a.father_yearly_income);
+  setV('f-mother-name',a.mother_name);setV('f-mother-profession',a.mother_profession);
+  setV('f-mother-designation',a.mother_designation);setV('f-mother-education',a.mother_education);
+  setV('f-mother-contact',a.mother_contact);setV('f-mother-nid',a.mother_nid);
+  setV('f-mother-office',a.mother_office_address);setV('f-mother-income',a.mother_yearly_income);
+  setV('f-guardian-name',a.guardian_name);setV('f-guardian-profession',a.guardian_profession);
+  setV('f-guardian-designation',a.guardian_designation);setV('f-guardian-education',a.guardian_education);
+  setV('f-guardian-contact',a.guardian_contact);setV('f-guardian-relation',a.guardian_relation);
+  setV('f-guardian-office',a.guardian_office_address);
+  ['student','father','mother','guardian'].forEach(role=>{
+    const ph=a[`${role}_photo`];if(!ph)return;
+    setV(`f-${role}-photo`,ph);
+    const el=document.getElementById(`${role}-photo-preview`);
+    if(el)el.innerHTML=`<img src="${ph}" class="w-full h-full object-cover">`;
   });
-  const target = document.getElementById(id);
-  if (target) target.classList.remove('hidden');
+  document.querySelector('.ftab').click();
 }
-
-function showSection(id, btn) {
-  document.querySelectorAll('.fsec').forEach(el => el.classList.add('hidden'));
-  document.querySelectorAll('.ftab').forEach(el => el.classList.remove('active'));
-  document.getElementById(id).classList.remove('hidden');
-  btn.classList.add('active');
-}
-
-function clearForm() {
-  const ids = ['f-session','f-class','f-category','f-version','f-quota','f-status','f-tracking-id','f-index-id',
-    'f-name-en','f-name-bn','f-dob','f-blood','f-gender','f-religion','f-birth-reg','f-nationality','f-emergency',
-    'f-height','f-last-class','f-last-version','f-last-institute','f-present-address','f-permanent-address','f-co-curricular',
-    'f-father-name','f-father-profession','f-father-designation','f-father-education','f-father-contact','f-father-nid','f-father-office','f-father-income',
-    'f-mother-name','f-mother-profession','f-mother-designation','f-mother-education','f-mother-contact','f-mother-nid','f-mother-office','f-mother-income',
-    'f-guardian-name','f-guardian-profession','f-guardian-designation','f-guardian-education','f-guardian-contact','f-guardian-relation','f-guardian-office'];
-  ids.forEach(id => setV(id, ''));
-  ['f-student-photo','f-father-photo','f-mother-photo','f-guardian-photo'].forEach(id => setV(id, ''));
-  ['student-photo-preview','father-photo-preview','mother-photo-preview','guardian-photo-preview'].forEach(pid => {
-    const el = document.getElementById(pid);
-    if (el) el.innerHTML = `<i data-lucide="camera" class="h-6 w-6 text-slate-300"></i><span class="text-[9px] text-slate-400 mt-1">Click to upload</span>`;
-  });
-  setV('f-session', '2026');
-  setV('f-class', 'Nursery');
-  setV('f-category', 'Army');
-  setV('f-version', 'Bangla');
-  setV('f-quota', 'No');
-  setV('f-status', 'Pending');
-  setV('f-nationality', 'Bangladeshi');
-  if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-function loadNewApplication() {
-  currentId = null;
-  clearForm();
-  showView('view-form');
-  document.getElementById('form-title').textContent = 'New Application';
-  document.getElementById('btn-dashboard').classList.remove('hidden');
-  document.getElementById('btn-dashboard').classList.add('flex');
-  document.getElementById('btn-new').classList.add('hidden');
-  // show first section
-  const firstTab = document.querySelector('.ftab');
-  if (firstTab) showSection('s-appinfo', firstTab);
-}
-
-async function loadForm(id) {
-  currentId = id;
-  showView('view-form');
-  document.getElementById('form-title').textContent = 'Edit Application';
-  document.getElementById('btn-dashboard').classList.remove('hidden');
-  document.getElementById('btn-dashboard').classList.add('flex');
-  document.getElementById('btn-new').classList.add('hidden');
-  clearForm();
-  setLoading(true);
-  const res = await api('getApplication', { id });
-  setLoading(false);
-  const a = res.application;
-  if (!a) { toast('Not found', 'error'); return; }
-  setV('f-session', a.session);
-  setV('f-class', a.class);
-  setV('f-category', a.category);
-  setV('f-version', a.version);
-  setV('f-quota', a.quota || 'No');
-  setV('f-status', a.status);
-  setV('f-tracking-id', a.tracking_id);
-  setV('f-index-id', a.index_id);
-  setV('f-name-en', a.name_english); setV('f-name-bn', a.name_bangla);
-  setV('f-dob', a.date_of_birth ? a.date_of_birth.split('T')[0] : '');
-  setV('f-blood', a.blood_group); setV('f-gender', a.gender); setV('f-religion', a.religion);
-  setV('f-birth-reg', a.birth_reg_no); setV('f-nationality', a.nationality || 'Bangladeshi');
-  setV('f-emergency', a.emergency_contact); setV('f-height', a.height);
-  setV('f-last-class', a.last_class); setV('f-last-version', a.last_version);
-  setV('f-last-institute', a.last_institute);
-  setV('f-present-address', a.present_address); setV('f-permanent-address', a.permanent_address);
-  setV('f-co-curricular', a.co_curricular);
-  setV('f-father-name', a.father_name); setV('f-father-profession', a.father_profession);
-  setV('f-father-designation', a.father_designation); setV('f-father-education', a.father_education);
-  setV('f-father-contact', a.father_contact); setV('f-father-nid', a.father_nid);
-  setV('f-father-office', a.father_office_address); setV('f-father-income', a.father_yearly_income);
-  setV('f-mother-name', a.mother_name); setV('f-mother-profession', a.mother_profession);
-  setV('f-mother-designation', a.mother_designation); setV('f-mother-education', a.mother_education);
-  setV('f-mother-contact', a.mother_contact); setV('f-mother-nid', a.mother_nid);
-  setV('f-mother-office', a.mother_office_address); setV('f-mother-income', a.mother_yearly_income);
-  setV('f-guardian-name', a.guardian_name); setV('f-guardian-profession', a.guardian_profession);
-  setV('f-guardian-designation', a.guardian_designation); setV('f-guardian-education', a.guardian_education);
-  setV('f-guardian-contact', a.guardian_contact); setV('f-guardian-relation', a.guardian_relation);
-  setV('f-guardian-office', a.guardian_office_address);
-  // Photos
-  ['student','father','mother','guardian'].forEach(role => {
-    const photo = a[`${role}_photo`];
-    if (photo) {
-      setV(`f-${role}-photo`, photo);
-      const prev = document.getElementById(`${role}-photo-preview`);
-      if (prev) prev.innerHTML = `<img src="${photo}" class="w-full h-full object-cover">`;
-    }
-  });
-  const firstTab = document.querySelector('.ftab');
-  if (firstTab) showSection('s-appinfo', firstTab);
-}
-
-function collectForm() {
+function collectForm(){
   return {
-    session: v('f-session'), class: v('f-class'), category: v('f-category'),
-    version: v('f-version'), quota: v('f-quota'), status: v('f-status'),
-    tracking_id: v('f-tracking-id') || null, index_id: v('f-index-id') || null,
-    name_english: v('f-name-en') || null, name_bangla: v('f-name-bn') || null,
-    date_of_birth: v('f-dob') || null, blood_group: v('f-blood') || null,
-    gender: v('f-gender') || null, religion: v('f-religion') || null,
-    birth_reg_no: v('f-birth-reg') || null, nationality: v('f-nationality') || 'Bangladeshi',
-    emergency_contact: v('f-emergency') || null, height: v('f-height') || null,
-    last_class: v('f-last-class') || null, last_version: v('f-last-version') || null,
-    last_institute: v('f-last-institute') || null,
-    present_address: v('f-present-address') || null, permanent_address: v('f-permanent-address') || null,
-    co_curricular: v('f-co-curricular') || null,
-    student_photo: document.getElementById('f-student-photo')?.value || null,
-    father_name: v('f-father-name') || null, father_profession: v('f-father-profession') || null,
-    father_designation: v('f-father-designation') || null, father_education: v('f-father-education') || null,
-    father_contact: v('f-father-contact') || null, father_nid: v('f-father-nid') || null,
-    father_office_address: v('f-father-office') || null, father_yearly_income: v('f-father-income') || null,
-    father_photo: document.getElementById('f-father-photo')?.value || null,
-    mother_name: v('f-mother-name') || null, mother_profession: v('f-mother-profession') || null,
-    mother_designation: v('f-mother-designation') || null, mother_education: v('f-mother-education') || null,
-    mother_contact: v('f-mother-contact') || null, mother_nid: v('f-mother-nid') || null,
-    mother_office_address: v('f-mother-office') || null, mother_yearly_income: v('f-mother-income') || null,
-    mother_photo: document.getElementById('f-mother-photo')?.value || null,
-    guardian_name: v('f-guardian-name') || null, guardian_profession: v('f-guardian-profession') || null,
-    guardian_designation: v('f-guardian-designation') || null, guardian_education: v('f-guardian-education') || null,
-    guardian_contact: v('f-guardian-contact') || null, guardian_relation: v('f-guardian-relation') || null,
-    guardian_office_address: v('f-guardian-office') || null,
-    guardian_photo: document.getElementById('f-guardian-photo')?.value || null
+    session:v('f-session'),class:v('f-class'),category:v('f-category'),version:v('f-version'),
+    quota:v('f-quota'),status:v('f-status'),
+    name_english:v('f-name-en')||null,name_bangla:v('f-name-bn')||null,
+    date_of_birth:v('f-dob')||null,blood_group:v('f-blood')||null,gender:v('f-gender')||null,
+    religion:v('f-religion')||null,birth_reg_no:v('f-birth-reg')||null,nationality:v('f-nationality')||'Bangladeshi',
+    emergency_contact:v('f-emergency')||null,height:v('f-height')||null,
+    last_class:v('f-last-class')||null,last_version:v('f-last-version')||null,last_institute:v('f-last-institute')||null,
+    present_address:v('f-present-address')||null,permanent_address:v('f-permanent-address')||null,co_curricular:v('f-co-curricular')||null,
+    student_photo:document.getElementById('f-student-photo')?.value||null,
+    father_name:v('f-father-name')||null,father_profession:v('f-father-profession')||null,
+    father_designation:v('f-father-designation')||null,father_education:v('f-father-education')||null,
+    father_contact:v('f-father-contact')||null,father_nid:v('f-father-nid')||null,
+    father_office_address:v('f-father-office')||null,father_yearly_income:v('f-father-income')||null,
+    father_photo:document.getElementById('f-father-photo')?.value||null,
+    mother_name:v('f-mother-name')||null,mother_profession:v('f-mother-profession')||null,
+    mother_designation:v('f-mother-designation')||null,mother_education:v('f-mother-education')||null,
+    mother_contact:v('f-mother-contact')||null,mother_nid:v('f-mother-nid')||null,
+    mother_office_address:v('f-mother-office')||null,mother_yearly_income:v('f-mother-income')||null,
+    mother_photo:document.getElementById('f-mother-photo')?.value||null,
+    guardian_name:v('f-guardian-name')||null,guardian_profession:v('f-guardian-profession')||null,
+    guardian_designation:v('f-guardian-designation')||null,guardian_education:v('f-guardian-education')||null,
+    guardian_contact:v('f-guardian-contact')||null,guardian_relation:v('f-guardian-relation')||null,
+    guardian_office_address:v('f-guardian-office')||null,
+    guardian_photo:document.getElementById('f-guardian-photo')?.value||null,
   };
 }
-
-async function saveApplication() {
-  const data = collectForm();
-  if (!data.name_english) { toast('Please enter student name', 'warn'); showSection('s-student', document.querySelectorAll('.ftab')[1]); return; }
+async function saveApplication(){
+  const data=collectForm();
+  if(!data.name_english){toast('Enter student name first','warn');document.querySelectorAll('.ftab')[1].click();return;}
   setLoading(true);
-  const res = await api('saveApplication', { id: currentId, data });
+  if(currentId){delete data.tracking_id;delete data.index_id;}
+  const r=await api('saveApplication',{id:currentId,data});
   setLoading(false);
-  if (res.error) { toast(res.error, 'error'); return; }
-  if (!currentId) currentId = res.id;
-  toast('Saved successfully', 'success');
-  // Update hidden fields with any generated IDs
-  if (!v('f-tracking-id')) {
-    const gr = await api('getApplication', { id: currentId });
-    if (gr.application) {
-      setV('f-tracking-id', gr.application.tracking_id);
-      setV('f-index-id', gr.application.index_id);
-    }
+  if(r.error){toast(r.error,'error');return;}
+  if(!currentId){
+    currentId=r.id;
+    setV('f-tracking-id',r.tracking_id||'');
+    setV('f-index-id',r.index_id||'');
   }
+  toast('Saved successfully','success');
 }
-
-/* ─── Photo upload ────────────────────────────────────── */
-function handlePhoto(input, previewId, hiddenId) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const dataUrl = e.target.result;
-    document.getElementById(hiddenId).value = dataUrl;
-    const prev = document.getElementById(previewId);
-    prev.innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+function handlePhoto(input,previewId,hiddenId){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const d=e.target.result;document.getElementById(hiddenId).value=d;
+    const p=document.getElementById(previewId);if(p)p.innerHTML=`<img src="${d}" class="w-full h-full object-cover">`;
   };
   reader.readAsDataURL(file);
 }
 
-/* ─── Print ──────────────────────────────────────────── */
-async function printFromList(id) {
-  setLoading(true);
-  const res = await api('getApplication', { id });
-  setLoading(false);
-  if (!res.application) { toast('Not found', 'error'); return; }
-  openPrintWindow(res.application);
-}
-
-function printCurrent() {
-  const data = collectForm();
-  openPrintWindow(data);
-}
-
-function openPrintWindow(a) {
-  const LOGO = 'https://lh3.googleusercontent.com/d/1Gb6gpcw1moYPAh9hSZ7cEQ5vgXxHj8LB';
-  const fmtDate = d => { if (!d) return ''; try { const dt = new Date(d); return dt.toLocaleDateString('en-BD'); } catch { return d; } };
-  const row = (label, value) => `<tr><td class="pr-lbl">${label}</td><td class="pr-val">${value || ''}</td></tr>`;
-
-  const studentSection = `
-    <div class="pr-section">
-      <div class="pr-sec-hdr">Applicant's Information</div>
-      <div class="pr-body">
-        <div class="pr-fields-photo">
-          <div class="pr-fields">
-            <table class="pr-table">
-              ${row("Name (English)", `<strong>${a.name_english||''}</strong>`)}
-              ${row("নাম (বাংলায়)", a.name_bangla)}
-              ${row("Date of Birth", fmtDate(a.date_of_birth))}
-              ${row("Blood Group", a.blood_group)}
-              ${row("Gender", a.gender)}
-              ${row("Religion", a.religion)}
-              ${row("Birth Reg. No.", a.birth_reg_no)}
-              ${row("Nationality", a.nationality || 'Bangladeshi')}
-              ${row("Emergency Contact", a.emergency_contact)}
-              ${row("Height (Inch)", a.height)}
-              ${row("Co-curricular Activities", a.co_curricular)}
-              ${row("Last Institute", a.last_institute)}
-              ${row("Last Class / Version", `${a.last_class||''}  ${a.last_version||''}`)}
-              ${row("Present Address", a.present_address)}
-              ${row("Permanent Address", a.permanent_address)}
-            </table>
-          </div>
-          <div class="pr-photo-box">
-            ${a.student_photo ? `<img src="${a.student_photo}" class="pr-photo">` : '<div class="pr-photo-empty">Photo</div>'}
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  const fatherSection = `
-    <div class="pr-section">
-      <div class="pr-sec-hdr">Father's Details</div>
-      <div class="pr-body">
-        <div class="pr-fields-photo">
-          <div class="pr-fields">
-            <table class="pr-table">
-              ${row("Name", `<strong>${a.father_name||''}</strong>`)}
-              ${row("Profession / Occupation", a.father_profession)}
-              ${row("Designation / Rank", a.father_designation)}
-              ${row("Education", a.father_education)}
-              ${row("Contact No.", a.father_contact)}
-              ${row("NID", a.father_nid)}
-              ${row("Office Address / Unit", a.father_office_address)}
-              ${row("Yearly Income (BDT)", a.father_yearly_income)}
-            </table>
-          </div>
-          <div class="pr-photo-box">
-            ${a.father_photo ? `<img src="${a.father_photo}" class="pr-photo">` : '<div class="pr-photo-empty">Photo</div>'}
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  const motherSection = `
-    <div class="pr-section">
-      <div class="pr-sec-hdr">Mother's Details</div>
-      <div class="pr-body">
-        <div class="pr-fields-photo">
-          <div class="pr-fields">
-            <table class="pr-table">
-              ${row("Name", `<strong>${a.mother_name||''}</strong>`)}
-              ${row("Profession / Occupation", a.mother_profession)}
-              ${row("Designation / Rank", a.mother_designation)}
-              ${row("Education", a.mother_education)}
-              ${row("Contact No.", a.mother_contact)}
-              ${row("NID", a.mother_nid)}
-              ${row("Office Address / Unit", a.mother_office_address)}
-              ${row("Yearly Income (BDT)", a.mother_yearly_income)}
-            </table>
-          </div>
-          <div class="pr-photo-box">
-            ${a.mother_photo ? `<img src="${a.mother_photo}" class="pr-photo">` : '<div class="pr-photo-empty">Photo</div>'}
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  const guardianSection = `
-    <div class="pr-section">
-      <div class="pr-sec-hdr">Local Guardian's Details</div>
-      <div class="pr-body">
-        <div class="pr-fields-photo">
-          <div class="pr-fields">
-            <table class="pr-table">
-              ${row("Name", `<strong>${a.guardian_name||''}</strong>`)}
-              ${row("Profession / Occupation", a.guardian_profession)}
-              ${row("Designation / Rank", a.guardian_designation)}
-              ${row("Education", a.guardian_education)}
-              ${row("Contact No.", a.guardian_contact)}
-              ${row("Relation to Student", a.guardian_relation)}
-              ${row("Office Address / Unit", a.guardian_office_address)}
-            </table>
-          </div>
-          <div class="pr-photo-box">
-            ${a.guardian_photo ? `<img src="${a.guardian_photo}" class="pr-photo">` : '<div class="pr-photo-empty">Photo</div>'}
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-  const html = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Application Form — ${a.tracking_id || ''}</title>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; background:#fff; }
-  /* ── Page ── */
-  @page { size: A4 portrait; margin: 12mm 12mm 16mm 12mm; }
-  /* ── Print Header ── */
-  .pr-header { display:flex; align-items:center; justify-content:space-between; border-bottom: 2px solid #1a2b5c; padding-bottom:8px; margin-bottom:6px; }
-  .pr-header-center { text-align:center; flex:1; }
-  .pr-college-name { font-size:15pt; font-weight:900; color:#1a2b5c; letter-spacing:0.5px; line-height:1.2; }
-  .pr-college-addr { font-size:8pt; color:#444; margin-top:2px; }
-  .pr-form-badge { margin-top:5px; display:inline-block; border:1.5px solid #1a2b5c; padding:3px 16px; font-size:10pt; font-weight:900; color:#1a2b5c; letter-spacing:1px; text-transform:uppercase; }
-  .pr-logo { width:62px; height:62px; object-fit:contain; }
-  .pr-qr { width:55px; height:55px; border:1px solid #ddd; display:flex; align-items:center; justify-content:center; font-size:6pt; color:#888; text-align:center; flex-direction:column; }
-  /* ── Index bar ── */
-  .pr-index-bar { background:#1a2b5c; color:#fff; display:flex; align-items:center; margin:6px 0; border-radius:3px; overflow:hidden; }
-  .pr-index-cell { flex:1; padding:5px 8px; font-size:8pt; font-weight:900; border-right:1px solid rgba(255,255,255,0.2); }
-  .pr-index-cell:last-child { border-right:none; }
-  .pr-index-label { font-size:6.5pt; font-weight:400; text-transform:uppercase; letter-spacing:0.5px; opacity:.7; display:block; }
-  /* ── Sections ── */
-  .pr-section { margin-bottom: 6px; border: 1px solid #c8c8c8; border-radius:2px; overflow:hidden; }
-  .pr-sec-hdr { background:#e8e8e8; padding:4px 10px; font-size:9pt; font-weight:900; color:#1a2b5c; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid #ccc; }
-  .pr-body { padding:6px 8px; }
-  .pr-fields-photo { display:flex; gap:10px; }
-  .pr-fields { flex:1; }
-  .pr-photo-box { flex-shrink:0; width:88px; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; }
-  .pr-photo { width:80px; height:90px; object-fit:cover; border:1px solid #bbb; display:block; }
-  .pr-photo-empty { width:80px; height:90px; border:1px solid #bbb; display:flex; align-items:center; justify-content:center; font-size:7pt; color:#999; text-align:center; }
-  /* ── Table ── */
-  .pr-table { width:100%; border-collapse:collapse; }
-  .pr-lbl { font-size:8pt; color:#555; padding:2px 6px 2px 0; white-space:nowrap; width:38%; vertical-align:top; }
-  .pr-val { font-size:8.5pt; color:#111; padding:2px 0; vertical-align:top; border-bottom:0.5px solid #eee; }
-  /* ── Terms ── */
-  .pr-terms { border:1px solid #bbb; padding:7px 10px; margin:6px 0; font-size:7.5pt; color:#333; border-radius:2px; }
-  .pr-terms-title { font-weight:900; font-size:8pt; margin-bottom:4px; color:#1a2b5c; }
-  .pr-terms ul { padding-left:14px; }
-  .pr-terms li { margin-bottom:3px; line-height:1.4; }
-  /* ── Signature ── */
-  .pr-sign-area { display:flex; justify-content:flex-end; margin-top:6px; }
-  .pr-sign-box { text-align:center; }
-  .pr-sign-line { border-top:1px solid #333; width:160px; margin-bottom:3px; }
-  .pr-sign-label { font-size:7.5pt; color:#555; }
-  /* ── Footer ── */
-  .pr-footer { position:fixed; bottom:0; left:0; right:0; text-align:center; font-size:7pt; color:#999; padding:4px; border-top:0.5px solid #ddd; }
-  @media screen { body { background:#e0e0e0; } .pr-page { max-width:210mm; margin:10mm auto; background:#fff; padding:12mm; box-shadow:0 2px 20px rgba(0,0,0,.2); } }
-</style>
-</head>
-<body>
-<div class="pr-page">
-  <!-- Header -->
-  <div class="pr-header">
-    <img src="${LOGO}" class="pr-logo" alt="CCPC Logo">
-    <div class="pr-header-center">
-      <div class="pr-college-name">Chattogram Cantonment Public College</div>
-      <div class="pr-college-addr">Zahir Raihan Road, Cantonment, Chattogram — 4220<br>Phone: 031-650500 | Web: ccpc.edu.bd</div>
-      <div class="pr-form-badge">Application Form — Session ${a.session || new Date().getFullYear()}</div>
-    </div>
-    <div class="pr-qr">
-      <svg width="50" height="50" viewBox="0 0 50 50" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="1" y="1" width="20" height="20" rx="1" fill="none" stroke="#333" stroke-width="1.5"/>
-        <rect x="4" y="4" width="14" height="14" fill="#333"/>
-        <rect x="6" y="6" width="10" height="10" fill="white"/>
-        <rect x="8" y="8" width="6" height="6" fill="#333"/>
-        <rect x="29" y="1" width="20" height="20" rx="1" fill="none" stroke="#333" stroke-width="1.5"/>
-        <rect x="32" y="4" width="14" height="14" fill="#333"/>
-        <rect x="34" y="6" width="10" height="10" fill="white"/>
-        <rect x="36" y="8" width="6" height="6" fill="#333"/>
-        <rect x="1" y="29" width="20" height="20" rx="1" fill="none" stroke="#333" stroke-width="1.5"/>
-        <rect x="4" y="32" width="14" height="14" fill="#333"/>
-        <rect x="6" y="34" width="10" height="10" fill="white"/>
-        <rect x="8" y="36" width="6" height="6" fill="#333"/>
-        <rect x="29" y="25" width="5" height="5" fill="#333"/>
-        <rect x="35" y="25" width="5" height="5" fill="#333"/>
-        <rect x="41" y="25" width="9" height="5" fill="#333"/>
-        <rect x="29" y="32" width="21" height="4" fill="#333"/>
-        <rect x="29" y="38" width="9" height="4" fill="#333"/>
-        <rect x="40" y="38" width="10" height="4" fill="#333"/>
-        <rect x="29" y="44" width="5" height="5" fill="#333"/>
-        <rect x="38" y="44" width="12" height="5" fill="#333"/>
-      </svg>
-      <span style="font-size:6pt;color:#888;margin-top:2px;">${a.tracking_id||''}</span>
-    </div>
-  </div>
-
-  <!-- Index Bar -->
-  <div class="pr-index-bar">
-    <div class="pr-index-cell">
-      <span class="pr-index-label">Index ID</span>
-      ${a.index_id || '—'}
-    </div>
-    <div class="pr-index-cell">
-      <span class="pr-index-label">Class</span>
-      ${a.class || '—'}
-    </div>
-    <div class="pr-index-cell">
-      <span class="pr-index-label">Category</span>
-      ${a.category || '—'}
-    </div>
-    <div class="pr-index-cell">
-      <span class="pr-index-label">Version</span>
-      ${a.version || '—'}
-    </div>
-    <div class="pr-index-cell">
-      <span class="pr-index-label">Quota</span>
-      ${a.quota || 'No'}
-    </div>
-  </div>
-
-  ${studentSection}
-  ${fatherSection}
-  ${motherSection}
-  ${guardianSection}
-
-  <!-- Terms -->
-  <div class="pr-terms">
-    <div class="pr-terms-title">Terms &amp; Conditions</div>
-    <ul>
-      <li>I hereby declare that all information provided in this application is true and correct to the best of my knowledge. Any false information may result in cancellation of admission.</li>
-      <li>I agree to abide by all rules and regulations of Chattogram Cantonment Public College. The authority reserves the right to cancel admission if any irregularity is found.</li>
-    </ul>
-  </div>
-
-  <!-- Signature -->
-  <div class="pr-sign-area">
-    <div class="pr-sign-box">
-      <div style="height:30px;"></div>
-      <div class="pr-sign-line"></div>
-      <div class="pr-sign-label">Guardian's Signature &amp; Date</div>
-    </div>
-  </div>
-
-  <!-- Footer -->
-  <div class="pr-footer">
-    Chattogram Cantonment Public College — Official Admission Form — Page 1 of 1
-  </div>
-</div>
-<script>window.onload = () => window.print();<\/script>
-</body>
-</html>`;
-
-  const w = window.open('', '_blank', 'width=900,height=1100');
-  w.document.write(html);
-  w.document.close();
-}
-
-/* ─── Keyboard shortcuts ─────────────────────────────── */
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeConfirm(false);
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault();
-    const fv = document.getElementById('view-form');
-    if (fv && !fv.classList.contains('hidden')) saveApplication();
+/* ─── Print helpers ──────────────────────────────── */
+async function ensureSettings(){
+  if(!currentFormSettings||!currentAdmitSettings){
+    const r=await api('getSettings',{});
+    const s=r.settings||{};
+    currentFormSettings=deepMerge(DEFAULT_FORM,s.form_settings||{});
+    currentAdmitSettings=deepMerge(DEFAULT_ADMIT,s.admit_card_settings||{});
+    currentIndexSettings=deepMerge(DEFAULT_INDEX,s.index_settings||{});
   }
+}
+async function printForm(){
+  await ensureSettings();
+  const data=collectForm();
+  openPrintTab(generateFormHtml(data,currentFormSettings));
+}
+async function printAdmitCard(){
+  if(!currentId){toast('Save the application first to generate Admit Card','warn');return;}
+  await ensureSettings();
+  const r=await api('getApplication',{id:currentId});
+  if(!r.application){toast('Not found','error');return;}
+  openPrintTab(generateAdmitHtml(r.application,currentAdmitSettings));
+}
+async function printFormById(id){
+  await ensureSettings();setLoading(true);
+  const r=await api('getApplication',{id});setLoading(false);
+  if(!r.application){toast('Not found','error');return;}
+  openPrintTab(generateFormHtml(r.application,currentFormSettings));
+}
+async function printAdmitById(id){
+  await ensureSettings();setLoading(true);
+  const r=await api('getApplication',{id});setLoading(false);
+  if(!r.application){toast('Not found','error');return;}
+  openPrintTab(generateAdmitHtml(r.application,currentAdmitSettings));
+}
+function openPrintTab(html){
+  const w=window.open('','_blank','width=900,height=1100');
+  w.document.write(html);w.document.close();
+}
+
+/* ─── Form HTML Generator ────────────────────────── */
+function prRow(label,value,visible=true){
+  if(!visible||value===null||value===undefined||value==='')return'';
+  return`<tr><td class="pr-lbl">${label}</td><td class="pr-val">${value}</td></tr>`;
+}
+function prPhoto(url,show){
+  if(!show)return'';
+  return`<div class="pr-photo-box">${url?`<img src="${url}" class="pr-photo">`:`<div class="pr-photo-empty">Photo</div>`}</div>`;
+}
+
+function generateFormHtml(a,fs,isPreview=false){
+  const h=fs.header||DEFAULT_FORM.header;
+  const ib=fs.indexBar||DEFAULT_FORM.indexBar;
+  const sh=fs.sectionHeader||DEFAULT_FORM.sectionHeader;
+  const sec=fs.sections||DEFAULT_FORM.sections;
+  const sf=fs.studentFields||DEFAULT_FORM.studentFields;
+  const ff=fs.fatherFields||DEFAULT_FORM.fatherFields;
+  const mf=fs.motherFields||DEFAULT_FORM.motherFields;
+  const gf=fs.guardianFields||DEFAULT_FORM.guardianFields;
+  const tr=fs.terms||DEFAULT_FORM.terms;
+
+  const indexFields=[];
+  if(ib.fields?.tracking_id&&a.tracking_id)indexFields.push({l:'Tracking ID',v:a.tracking_id});
+  if(ib.fields?.index_id)indexFields.push({l:'Index ID',v:a.index_id||'—'});
+  if(ib.fields?.class)indexFields.push({l:'Class',v:a.class||'—'});
+  if(ib.fields?.category)indexFields.push({l:'Category',v:a.category||'—'});
+  if(ib.fields?.version)indexFields.push({l:'Version',v:a.version||'—'});
+  if(ib.fields?.quota)indexFields.push({l:'Quota',v:a.quota||'No'});
+
+  const studentHtml=!(sec.student?.visible)?'':`
+    <div class="pr-section"><div class="pr-sec-hdr" style="background:${sh.bgColor};color:${sh.textColor}">${sec.student.label||"Applicant's Information"}</div>
+    <div class="pr-body"><div class="pr-row-photo">
+      <div class="pr-fields"><table class="pr-table">
+        ${prRow('Name (English)',`<strong>${a.name_english||''}</strong>`,sf.name_en)}
+        ${prRow('নাম (বাংলায়)',a.name_bangla,sf.name_bn)}
+        ${prRow('Date of Birth',fmtDate(a.date_of_birth),sf.dob)}
+        ${prRow('Blood Group',a.blood_group,sf.blood)}
+        ${prRow('Gender',a.gender,sf.gender)}
+        ${prRow('Religion',a.religion,sf.religion)}
+        ${prRow('Birth Registration No.',a.birth_reg_no,sf.birth_reg)}
+        ${prRow('Nationality',a.nationality,sf.nationality)}
+        ${prRow('Emergency Contact',a.emergency_contact,sf.emergency)}
+        ${prRow('Height (Inch)',a.height,sf.height)}
+        ${prRow('Co-curricular Activities',a.co_curricular,sf.co_curr)}
+        ${prRow('Last Institute',a.last_institute,sf.last_inst)}
+        ${prRow('Last Class / Version',`${a.last_class||''} ${a.last_version||''}`.trim(),sf.last_cls)}
+        ${prRow('Present Address',a.present_address,sf.present)}
+        ${prRow('Permanent Address',a.permanent_address,sf.permanent)}
+      </table></div>
+      ${prPhoto(a.student_photo,sec.student.showPhoto)}
+    </div></div></div>`;
+
+  const fatherHtml=!(sec.father?.visible)?'':`
+    <div class="pr-section"><div class="pr-sec-hdr" style="background:${sh.bgColor};color:${sh.textColor}">${sec.father.label||"Father's Details"}</div>
+    <div class="pr-body"><div class="pr-row-photo">
+      <div class="pr-fields"><table class="pr-table">
+        ${prRow('Name',`<strong>${a.father_name||''}</strong>`,ff.name)}
+        ${prRow('Profession',a.father_profession,ff.prof)}
+        ${prRow('Designation / Rank',a.father_designation,ff.desig)}
+        ${prRow('Education',a.father_education,ff.edu)}
+        ${prRow('Contact No.',a.father_contact,ff.contact)}
+        ${prRow('NID',a.father_nid,ff.nid)}
+        ${prRow('Office Address / Unit',a.father_office_address,ff.office)}
+        ${prRow('Yearly Income (BDT)',a.father_yearly_income,ff.income)}
+      </table></div>
+      ${prPhoto(a.father_photo,sec.father.showPhoto)}
+    </div></div></div>`;
+
+  const motherHtml=!(sec.mother?.visible)?'':`
+    <div class="pr-section"><div class="pr-sec-hdr" style="background:${sh.bgColor};color:${sh.textColor}">${sec.mother.label||"Mother's Details"}</div>
+    <div class="pr-body"><div class="pr-row-photo">
+      <div class="pr-fields"><table class="pr-table">
+        ${prRow('Name',`<strong>${a.mother_name||''}</strong>`,mf.name)}
+        ${prRow('Profession',a.mother_profession,mf.prof)}
+        ${prRow('Designation / Rank',a.mother_designation,mf.desig)}
+        ${prRow('Education',a.mother_education,mf.edu)}
+        ${prRow('Contact No.',a.mother_contact,mf.contact)}
+        ${prRow('NID',a.mother_nid,mf.nid)}
+        ${prRow('Office Address / Unit',a.mother_office_address,mf.office)}
+        ${prRow('Yearly Income (BDT)',a.mother_yearly_income,mf.income)}
+      </table></div>
+      ${prPhoto(a.mother_photo,sec.mother.showPhoto)}
+    </div></div></div>`;
+
+  const guardianHtml=!(sec.guardian?.visible)?'':`
+    <div class="pr-section"><div class="pr-sec-hdr" style="background:${sh.bgColor};color:${sh.textColor}">${sec.guardian.label||"Local Guardian's Details"}</div>
+    <div class="pr-body"><div class="pr-row-photo">
+      <div class="pr-fields"><table class="pr-table">
+        ${prRow('Name',`<strong>${a.guardian_name||''}</strong>`,gf.name)}
+        ${prRow('Profession',a.guardian_profession,gf.prof)}
+        ${prRow('Designation / Rank',a.guardian_designation,gf.desig)}
+        ${prRow('Education',a.guardian_education,gf.edu)}
+        ${prRow('Contact No.',a.guardian_contact,gf.contact)}
+        ${prRow('Relation to Student',a.guardian_relation,gf.relation)}
+        ${prRow('Office Address',a.guardian_office_address,gf.office)}
+      </table></div>
+      ${prPhoto(a.guardian_photo,sec.guardian.showPhoto)}
+    </div></div></div>`;
+
+  const termsHtml=!tr?.visible?'':
+    `<div class="pr-terms"><div class="pr-terms-title">Terms &amp; Conditions</div>
+    <ul>${(tr.text||'').split('\n').filter(l=>l.trim()).map(l=>`<li>${l}</li>`).join('')}</ul></div>`;
+
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Application — ${a.tracking_id||''}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:10pt;color:#111;background:#fff}
+@page{size:A4 portrait;margin:12mm}
+.pr-header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid ${ib.bgColor};padding-bottom:8px;margin-bottom:6px}
+.pr-logo{width:60px;height:60px;object-fit:contain}
+.pr-college-name{font-size:14pt;font-weight:900;color:${ib.bgColor};line-height:1.2;letter-spacing:.3px}
+.pr-college-addr{font-size:8pt;color:#555;margin-top:2px}
+.pr-form-badge{margin-top:4px;display:inline-block;border:1.5px solid ${ib.bgColor};padding:3px 14px;font-size:10pt;font-weight:900;color:${ib.bgColor};text-transform:uppercase;letter-spacing:1px}
+.pr-index-bar{background:${ib.bgColor};color:${ib.textColor};display:flex;margin:6px 0;border-radius:3px;overflow:hidden}
+.pr-index-cell{flex:1;padding:5px 8px;font-size:8pt;font-weight:900;border-right:1px solid rgba(255,255,255,.2)}
+.pr-index-cell:last-child{border-right:none}
+.pr-index-label{font-size:6pt;font-weight:400;text-transform:uppercase;letter-spacing:.5px;opacity:.7;display:block}
+.pr-section{margin-bottom:6px;border:1px solid #ccc;border-radius:2px;overflow:hidden}
+.pr-sec-hdr{padding:4px 10px;font-size:9pt;font-weight:900;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #ccc}
+.pr-body{padding:6px 8px}
+.pr-row-photo{display:flex;gap:10px}
+.pr-fields{flex:1}
+.pr-photo-box{flex-shrink:0;width:88px;display:flex;align-items:flex-start;justify-content:center}
+.pr-photo{width:80px;height:90px;object-fit:cover;border:1px solid #bbb;display:block}
+.pr-photo-empty{width:80px;height:90px;border:1px solid #bbb;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#aaa}
+.pr-table{width:100%;border-collapse:collapse}
+.pr-lbl{font-size:8pt;color:#555;padding:2.5px 6px 2.5px 0;width:38%;vertical-align:top;white-space:nowrap}
+.pr-val{font-size:8.5pt;color:#111;padding:2.5px 0;vertical-align:top;border-bottom:.5px solid #eee}
+.pr-terms{border:1px solid #bbb;padding:6px 10px;margin:6px 0;font-size:7.5pt;color:#333}
+.pr-terms-title{font-weight:900;font-size:8pt;margin-bottom:3px;color:${ib.bgColor}}
+.pr-terms ul{padding-left:14px}
+.pr-terms li{margin-bottom:2px;line-height:1.4}
+.pr-sign-area{display:flex;justify-content:flex-end;margin-top:8px}
+.pr-sign-line{border-top:1px solid #333;width:160px;margin-bottom:3px}
+.pr-sign-label{font-size:7.5pt;color:#555;text-align:center}
+.pr-footer{text-align:center;font-size:7pt;color:#aaa;margin-top:10px;padding-top:4px;border-top:.5px solid #ddd}
+${isPreview?'@media screen{body{background:#f5f5f5;padding:10px}.pr-page{background:#fff;padding:12mm;max-width:100%;box-shadow:0 2px 12px rgba(0,0,0,.1)}}':'@media screen{body{background:#e0e0e0}.pr-page{max-width:210mm;margin:10mm auto;background:#fff;padding:12mm;box-shadow:0 4px 20px rgba(0,0,0,.2)}}'}
+</style></head>
+<body><div class="pr-page">
+<div class="pr-header">
+  <img src="${h.logoUrl}" class="pr-logo" alt="CCPC">
+  <div style="text-align:center;flex:1">
+    <div class="pr-college-name">${h.collegeName}</div>
+    <div class="pr-college-addr">${h.address}${h.phone?` &nbsp;|&nbsp; Phone: ${h.phone}`:''}${h.website?` &nbsp;|&nbsp; ${h.website}`:''}</div>
+    <div class="pr-form-badge">${h.formTitle} — Session ${a.session||new Date().getFullYear()}</div>
+  </div>
+  <div style="width:60px;text-align:center;font-size:6pt;color:#aaa"><div style="width:50px;height:50px;border:1px solid #ddd;margin:0 auto 2px;display:flex;align-items:center;justify-content:center;font-size:8pt;font-weight:900;color:${ib.bgColor}">${a.tracking_id||''}</div>Tracking ID</div>
+</div>
+${indexFields.length?`<div class="pr-index-bar">${indexFields.map(f=>`<div class="pr-index-cell"><span class="pr-index-label">${f.l}</span>${f.v}</div>`).join('')}</div>`:''}
+${studentHtml}${fatherHtml}${motherHtml}${guardianHtml}
+${termsHtml}
+<div class="pr-sign-area"><div class="pr-sign-box"><div style="height:28px"></div><div class="pr-sign-line"></div><div class="pr-sign-label">${fs.signatureLabel||DEFAULT_FORM.signatureLabel}</div></div></div>
+<div class="pr-footer">${fs.footer||DEFAULT_FORM.footer}</div>
+</div>${isPreview?'':'<script>window.onload=()=>window.print();<\/script>'}</body></html>`;
+}
+
+/* ─── Admit Card HTML Generator ──────────────────── */
+function generateAdmitHtml(a,as,isPreview=false){
+  const h=as.header||DEFAULT_ADMIT.header;
+  const fields=as.fields||DEFAULT_ADMIT.fields;
+  const labels=as.labels||DEFAULT_ADMIT.labels;
+  const fieldRows=[
+    ['tracking_id',labels.tracking_id||'Roll / Tracking No.',a.tracking_id],
+    ['index_id',labels.index_id||'Index ID',a.index_id],
+    ['name_en',labels.name_en||'Name',a.name_english],
+    ['name_bn',labels.name_bn||'নাম',a.name_bangla],
+    ['class',labels.class||'Class',a.class],
+    ['category',labels.category||'Category',a.category],
+    ['version',labels.version||'Version',a.version],
+    ['session',labels.session||'Session',a.session],
+    ['dob',labels.dob||'Date of Birth',fmtDate(a.date_of_birth)],
+    ['blood',labels.blood||'Blood Group',a.blood_group],
+  ].filter(([k])=>fields[k]);
+
+  const sig1=as.sig1||DEFAULT_ADMIT.sig1;
+  const sig2=as.sig2||DEFAULT_ADMIT.sig2;
+
+  return`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Admit Card — ${a.tracking_id||''}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial,sans-serif;font-size:10pt;color:#111;background:#fff}
+@page{size:A4 portrait;margin:15mm}
+.ac-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:8px;border-bottom:3px solid ${as.bannerBg||'#1a2b5c'};margin-bottom:0}
+.ac-logo{width:60px;height:60px;object-fit:contain}
+.ac-banner{background:${as.bannerBg||'#1a2b5c'};color:${as.bannerText||'#fff'};padding:8px 16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ac-card-title{font-size:16pt;font-weight:900;letter-spacing:2px;text-transform:uppercase}
+.ac-session{font-size:10pt;opacity:.8}
+.ac-body{display:flex;gap:16px;margin-bottom:12px}
+.ac-fields{flex:1}
+.ac-field-row{display:flex;gap:8px;border-bottom:.5px solid #e5e7eb;padding:4px 0}
+.ac-field-lbl{font-size:8.5pt;color:#555;width:40%;vertical-align:middle}
+.ac-field-val{font-size:9.5pt;font-weight:700;color:#111;flex:1}
+.ac-photo-box{flex-shrink:0;width:100px;display:flex;flex-direction:column;align-items:center}
+.ac-photo{width:90px;height:105px;object-fit:cover;border:1.5px solid #bbb;display:block}
+.ac-photo-empty{width:90px;height:105px;border:1.5px solid #bbb;display:flex;align-items:center;justify-content:center;font-size:7pt;color:#aaa}
+.ac-exam-box{border:1px solid #ccc;border-radius:3px;padding:8px 12px;margin-bottom:10px;background:#f9fafb}
+.ac-exam-title{font-size:8pt;font-weight:900;text-transform:uppercase;color:${as.bannerBg||'#1a2b5c'};letter-spacing:.5px;margin-bottom:4px}
+.ac-exam-row{font-size:8.5pt;color:#333;margin:2px 0}
+.ac-instructions-box{border:1px solid #ccc;border-radius:3px;padding:8px 12px;margin-bottom:12px}
+.ac-instr-title{font-size:8pt;font-weight:900;text-transform:uppercase;color:${as.bannerBg||'#1a2b5c'};letter-spacing:.5px;margin-bottom:4px}
+.ac-instr-list{padding-left:14px;font-size:8pt;color:#333}
+.ac-instr-list li{margin-bottom:2px;line-height:1.4}
+.ac-sigs{display:flex;justify-content:space-between;margin-top:16px}
+.ac-sig{text-align:center;min-width:150px}
+.ac-sig-line{border-top:1px solid #333;margin-bottom:4px}
+.ac-sig-label{font-size:7.5pt;color:#555}
+.ac-footer{text-align:center;font-size:7pt;color:#aaa;margin-top:10px;padding-top:5px;border-top:.5px solid #ddd}
+.ac-college-name{font-size:13pt;font-weight:900;color:${as.bannerBg||'#1a2b5c'}}
+.ac-college-addr{font-size:7.5pt;color:#555;margin-top:1px}
+${isPreview?'@media screen{body{background:#f5f5f5;padding:10px}.ac-page{background:#fff;padding:15mm;max-width:100%;box-shadow:0 2px 12px rgba(0,0,0,.1)}}':'@media screen{body{background:#e0e0e0}.ac-page{max-width:210mm;margin:10mm auto;background:#fff;padding:15mm;box-shadow:0 4px 20px rgba(0,0,0,.2)}}'}
+</style></head>
+<body><div class="ac-page">
+<div class="ac-header">
+  <img src="${h.logoUrl}" class="ac-logo" alt="CCPC">
+  <div style="text-align:center;flex:1">
+    <div class="ac-college-name">${h.collegeName}</div>
+    <div class="ac-college-addr">${h.address}</div>
+  </div>
+  <div style="width:60px"></div>
+</div>
+<div class="ac-banner">
+  <span class="ac-card-title">${h.cardTitle||'ADMIT CARD'}</span>
+  <span class="ac-session">Session ${a.session||new Date().getFullYear()}</span>
+</div>
+<div class="ac-body">
+  <div class="ac-fields">
+    ${fieldRows.map(([,lbl,val])=>`<div class="ac-field-row"><span class="ac-field-lbl">${lbl}</span><span class="ac-field-val">${val||'—'}</span></div>`).join('')}
+  </div>
+  ${as.showPhoto!==false?`<div class="ac-photo-box">${a.student_photo?`<img src="${a.student_photo}" class="ac-photo">`:`<div class="ac-photo-empty">Photo</div>`}</div>`:''}
+</div>
+<div class="ac-exam-box">
+  <div class="ac-exam-title">Examination Details</div>
+  ${as.examCenter?`<div class="ac-exam-row"><strong>Exam Center:</strong> ${as.examCenter}</div>`:''}
+  ${as.examDate?`<div class="ac-exam-row"><strong>Date:</strong> ${as.examDate}</div>`:''}
+  ${as.examTime?`<div class="ac-exam-row"><strong>Time:</strong> ${as.examTime}</div>`:''}
+</div>
+${as.instructions?`<div class="ac-instructions-box"><div class="ac-instr-title">Instructions</div><ul class="ac-instr-list">${as.instructions.split('\n').filter(l=>l.trim()).map(l=>`<li>${l}</li>`).join('')}</ul></div>`:''}
+<div class="ac-sigs">
+  ${sig1.visible?`<div class="ac-sig"><div style="height:30px"></div><div class="ac-sig-line"></div><div class="ac-sig-label">${sig1.label}</div></div>`:''}
+  ${sig2.visible?`<div class="ac-sig"><div style="height:30px"></div><div class="ac-sig-line"></div><div class="ac-sig-label">${sig2.label}</div></div>`:''}
+</div>
+<div class="ac-footer">${as.footer||DEFAULT_ADMIT.footer}</div>
+</div>${isPreview?'':'<script>window.onload=()=>window.print();<\/script>'}</body></html>`;
+}
+
+/* ─── Admin Panel ────────────────────────────────── */
+async function loadAdminPanel(){
+  showView('view-admin');setTopbarBtn(true,false,false);
+  setLoading(true);const r=await api('getSettings',{});setLoading(false);
+  const s=r.settings||{};
+  currentFormSettings  =deepMerge(DEFAULT_FORM,s.form_settings||{});
+  currentAdmitSettings =deepMerge(DEFAULT_ADMIT,s.admit_card_settings||{});
+  currentIndexSettings =deepMerge(DEFAULT_INDEX,s.index_settings||{});
+  populateFormDesigner(currentFormSettings);
+  populateAdmitDesigner(currentAdmitSettings);
+  populateIndexSettings(currentIndexSettings);
+  // Init live listeners
+  initDesignerListeners();
+  document.querySelector('.atab').click();
+}
+
+/* ─── Index Pattern ──────────────────────────────── */
+function populateIndexSettings(s){
+  setV('ip-pattern',s.pattern||'{YY}{CLASS}{SEQ4}');
+  renderCodeTable('class-codes-table',s.classCodes||{},'class');
+  renderCodeTable('cat-codes-table',s.categoryCodes||{},'cat');
+  updateIndexPreview();
+}
+function renderCodeTable(containerId,codes,prefix){
+  const el=document.getElementById(containerId);if(!el)return;
+  el.innerHTML=Object.entries(codes).map(([k,v])=>`
+    <div class="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+      <span class="text-xs font-bold text-slate-600 w-20 shrink-0">${k}</span>
+      <span class="text-slate-300">→</span>
+      <input type="text" data-prefix="${prefix}" data-key="${k}" value="${v}" maxlength="5"
+        class="finput finput-sm flex-1 font-mono text-center font-black text-blue-600"
+        oninput="updateIndexPreview()">
+    </div>`).join('');
+}
+function collectIndexSettings(){
+  const classCodes={},catCodes={};
+  document.querySelectorAll('[data-prefix="class"]').forEach(el=>{classCodes[el.dataset.key]=el.value.trim().toUpperCase();});
+  document.querySelectorAll('[data-prefix="cat"]').forEach(el=>{catCodes[el.dataset.key]=el.value.trim().toUpperCase();});
+  return { pattern:v('ip-pattern')||'{YY}{CLASS}{SEQ4}', classCodes, categoryCodes:catCodes };
+}
+function buildIndexPreview(settings,cls,cat,session){
+  const p=settings.pattern||'{YY}{CLASS}{SEQ4}';
+  const yr=String(session||new Date().getFullYear());
+  const classCode=(settings.classCodes||{})[cls]||(cls||'XX').slice(0,2).toUpperCase();
+  const catCode=(settings.categoryCodes||{})[cat]||'X';
+  const seq=1;
+  return p.replace('{YYYY}',yr).replace('{YY}',yr.slice(-2)).replace('{CLASS}',classCode).replace('{CAT}',catCode)
+    .replace('{SEQ5}',String(seq).padStart(5,'0')).replace('{SEQ4}',String(seq).padStart(4,'0')).replace('{SEQ3}',String(seq).padStart(3,'0'));
+}
+function updateIndexPreview(){
+  const settings=collectIndexSettings();
+  const cls=document.getElementById('ip-test-class')?.value||'Nursery';
+  const cat=document.getElementById('ip-test-cat')?.value||'Army';
+  const sess=document.getElementById('ip-test-session')?.value||'2026';
+  const el=document.getElementById('ip-preview');
+  if(el)el.textContent=buildIndexPreview(settings,cls,cat,sess);
+}
+function insertToken(token){
+  const inp=document.getElementById('ip-pattern');if(!inp)return;
+  const pos=inp.selectionStart||inp.value.length;
+  inp.value=inp.value.slice(0,pos)+token+inp.value.slice(pos);
+  inp.setSelectionRange(pos+token.length,pos+token.length);
+  inp.focus();updateIndexPreview();
+}
+async function saveIndexSettings(){
+  const value=collectIndexSettings();currentIndexSettings=value;
+  setLoading(true);const r=await api('saveSettings',{key:'index_settings',value});setLoading(false);
+  if(r.error){toast(r.error,'error');return;}toast('Index settings saved','success');
+}
+
+/* ─── Form Designer ──────────────────────────────── */
+function populateFormDesigner(s){
+  const h=s.header||DEFAULT_FORM.header;
+  setV('fd-logo-url',h.logoUrl);setV('fd-college-name',h.collegeName);
+  setV('fd-address',h.address);setV('fd-phone',h.phone);setV('fd-website',h.website);
+  setV('fd-form-title',h.formTitle);
+  const ib=s.indexBar||DEFAULT_FORM.indexBar;
+  setCol('fd-index-bg',ib.bgColor);setCol('fd-index-text',ib.textColor);
+  const fields=ib.fields||DEFAULT_FORM.indexBar.fields;
+  setChk('fd-idx-tracking',fields.tracking_id);setChk('fd-idx-index',fields.index_id);
+  setChk('fd-idx-class',fields.class);setChk('fd-idx-category',fields.category);
+  setChk('fd-idx-version',fields.version);setChk('fd-idx-quota',fields.quota);
+  const sh=s.sectionHeader||DEFAULT_FORM.sectionHeader;
+  setCol('fd-sec-bg',sh.bgColor);setCol('fd-sec-text',sh.textColor);
+  const sec=s.sections||DEFAULT_FORM.sections;
+  setChk('fd-show-student',sec.student?.visible!==false);setV('fd-student-label',sec.student?.label||"Applicant's Information");setChk('fd-show-student-photo',sec.student?.showPhoto!==false);
+  setChk('fd-show-father',sec.father?.visible!==false);setV('fd-father-label',sec.father?.label||"Father's Details");setChk('fd-show-father-photo',sec.father?.showPhoto!==false);
+  setChk('fd-show-mother',sec.mother?.visible!==false);setV('fd-mother-label',sec.mother?.label||"Mother's Details");setChk('fd-show-mother-photo',sec.mother?.showPhoto!==false);
+  setChk('fd-show-guardian',sec.guardian?.visible!==false);setV('fd-guardian-label',sec.guardian?.label||"Local Guardian's Details");setChk('fd-show-guardian-photo',sec.guardian?.showPhoto!==false);
+  const sf=s.studentFields||DEFAULT_FORM.studentFields;
+  Object.entries({name_en:'sff-name-en',name_bn:'sff-name-bn',dob:'sff-dob',blood:'sff-blood',gender:'sff-gender',religion:'sff-religion',birth_reg:'sff-birth-reg',nationality:'sff-nationality',emergency:'sff-emergency',height:'sff-height',co_curr:'sff-co-curr',last_inst:'sff-last-inst',last_cls:'sff-last-cls',present:'sff-present',permanent:'sff-permanent'}).forEach(([k,id])=>setChk(id,sf[k]!==false));
+  const ff=s.fatherFields||DEFAULT_FORM.fatherFields;
+  Object.entries({name:'fff-name',prof:'fff-prof',desig:'fff-desig',edu:'fff-edu',contact:'fff-contact',nid:'fff-nid',office:'fff-office',income:'fff-income'}).forEach(([k,id])=>setChk(id,ff[k]!==false));
+  const mf=s.motherFields||DEFAULT_FORM.motherFields;
+  Object.entries({name:'mff-name',prof:'mff-prof',desig:'mff-desig',edu:'mff-edu',contact:'mff-contact',nid:'mff-nid',office:'mff-office',income:'mff-income'}).forEach(([k,id])=>setChk(id,mf[k]!==false));
+  const gf=s.guardianFields||DEFAULT_FORM.guardianFields;
+  Object.entries({name:'gff-name',prof:'gff-prof',desig:'gff-desig',edu:'gff-edu',contact:'gff-contact',relation:'gff-relation',office:'gff-office'}).forEach(([k,id])=>setChk(id,gf[k]!==false));
+  const tr=s.terms||DEFAULT_FORM.terms;
+  setChk('fd-show-terms',tr.visible!==false);setV('fd-terms-text',tr.text||DEFAULT_FORM.terms.text);
+  setV('fd-footer',s.footer||DEFAULT_FORM.footer);setV('fd-sign-label',s.signatureLabel||DEFAULT_FORM.signatureLabel);
+}
+function collectFormDesignSettings(){
+  return{
+    header:{logoUrl:v('fd-logo-url')||DEFAULT_FORM.header.logoUrl,collegeName:v('fd-college-name'),address:v('fd-address'),phone:v('fd-phone'),website:v('fd-website'),formTitle:v('fd-form-title')},
+    indexBar:{bgColor:col('fd-index-bg'),textColor:col('fd-index-text'),fields:{tracking_id:chk('fd-idx-tracking'),index_id:chk('fd-idx-index'),class:chk('fd-idx-class'),category:chk('fd-idx-category'),version:chk('fd-idx-version'),quota:chk('fd-idx-quota')}},
+    sectionHeader:{bgColor:col('fd-sec-bg'),textColor:col('fd-sec-text')},
+    sections:{
+      student:{visible:chk('fd-show-student'),label:v('fd-student-label'),showPhoto:chk('fd-show-student-photo')},
+      father: {visible:chk('fd-show-father'), label:v('fd-father-label'), showPhoto:chk('fd-show-father-photo')},
+      mother: {visible:chk('fd-show-mother'), label:v('fd-mother-label'), showPhoto:chk('fd-show-mother-photo')},
+      guardian:{visible:chk('fd-show-guardian'),label:v('fd-guardian-label'),showPhoto:chk('fd-show-guardian-photo')},
+    },
+    studentFields:{name_en:chk('sff-name-en'),name_bn:chk('sff-name-bn'),dob:chk('sff-dob'),blood:chk('sff-blood'),gender:chk('sff-gender'),religion:chk('sff-religion'),birth_reg:chk('sff-birth-reg'),nationality:chk('sff-nationality'),emergency:chk('sff-emergency'),height:chk('sff-height'),co_curr:chk('sff-co-curr'),last_inst:chk('sff-last-inst'),last_cls:chk('sff-last-cls'),present:chk('sff-present'),permanent:chk('sff-permanent')},
+    fatherFields:{name:chk('fff-name'),prof:chk('fff-prof'),desig:chk('fff-desig'),edu:chk('fff-edu'),contact:chk('fff-contact'),nid:chk('fff-nid'),office:chk('fff-office'),income:chk('fff-income')},
+    motherFields:{name:chk('mff-name'),prof:chk('mff-prof'),desig:chk('mff-desig'),edu:chk('mff-edu'),contact:chk('mff-contact'),nid:chk('mff-nid'),office:chk('mff-office'),income:chk('mff-income')},
+    guardianFields:{name:chk('gff-name'),prof:chk('gff-prof'),desig:chk('gff-desig'),edu:chk('gff-edu'),contact:chk('gff-contact'),relation:chk('gff-relation'),office:chk('gff-office')},
+    terms:{visible:chk('fd-show-terms'),text:document.getElementById('fd-terms-text')?.value||DEFAULT_FORM.terms.text},
+    footer:v('fd-footer'),signatureLabel:v('fd-sign-label'),
+  };
+}
+function updateFormPreview(){
+  const settings=collectFormDesignSettings();
+  const iframe=document.getElementById('form-preview-iframe');if(!iframe)return;
+  iframe.srcdoc=generateFormHtml(DEMO_APP,settings,true);
+}
+async function saveFormDesign(){
+  const value=collectFormDesignSettings();currentFormSettings=deepMerge(DEFAULT_FORM,value);
+  setLoading(true);const r=await api('saveSettings',{key:'form_settings',value});setLoading(false);
+  if(r.error){toast(r.error,'error');return;}toast('Form design saved','success');
+}
+function resetFormDesign(){
+  populateFormDesigner(DEFAULT_FORM);updateFormPreview();
+}
+
+/* ─── Admit Card Designer ─────────────────────────── */
+function populateAdmitDesigner(s){
+  const h=s.header||DEFAULT_ADMIT.header;
+  setV('ad-logo-url',h.logoUrl);setV('ad-college-name',h.collegeName);setV('ad-address',h.address);setV('ad-card-title',h.cardTitle);
+  setCol('ad-banner-bg',s.bannerBg||DEFAULT_ADMIT.bannerBg);setCol('ad-banner-text',s.bannerText||DEFAULT_ADMIT.bannerText);
+  setChk('ad-show-photo',s.showPhoto!==false);
+  const fields=s.fields||DEFAULT_ADMIT.fields;
+  Object.entries({tracking_id:'adf-tracking',index_id:'adf-index',name_en:'adf-name-en',name_bn:'adf-name-bn',class:'adf-class',category:'adf-category',version:'adf-version',session:'adf-session',dob:'adf-dob',blood:'adf-blood'}).forEach(([k,id])=>setChk(id,fields[k]!==false));
+  setV('ad-exam-center',s.examCenter||DEFAULT_ADMIT.examCenter);setV('ad-exam-date',s.examDate||'');setV('ad-exam-time',s.examTime||'');
+  setV('ad-instructions',s.instructions||DEFAULT_ADMIT.instructions);
+  const sig1=s.sig1||DEFAULT_ADMIT.sig1;const sig2=s.sig2||DEFAULT_ADMIT.sig2;
+  setChk('ad-sig1-show',sig1.visible!==false);setV('ad-sig1-label',sig1.label);
+  setChk('ad-sig2-show',sig2.visible!==false);setV('ad-sig2-label',sig2.label);
+  setV('ad-footer',s.footer||DEFAULT_ADMIT.footer);
+}
+function collectAdmitDesignSettings(){
+  return{
+    header:{logoUrl:v('ad-logo-url')||DEFAULT_ADMIT.header.logoUrl,collegeName:v('ad-college-name'),address:v('ad-address'),cardTitle:v('ad-card-title')},
+    bannerBg:col('ad-banner-bg'),bannerText:col('ad-banner-text'),
+    showPhoto:chk('ad-show-photo'),
+    fields:{tracking_id:chk('adf-tracking'),index_id:chk('adf-index'),name_en:chk('adf-name-en'),name_bn:chk('adf-name-bn'),class:chk('adf-class'),category:chk('adf-category'),version:chk('adf-version'),session:chk('adf-session'),dob:chk('adf-dob'),blood:chk('adf-blood')},
+    examCenter:v('ad-exam-center'),examDate:v('ad-exam-date'),examTime:v('ad-exam-time'),
+    instructions:document.getElementById('ad-instructions')?.value||'',
+    sig1:{visible:chk('ad-sig1-show'),label:v('ad-sig1-label')},
+    sig2:{visible:chk('ad-sig2-show'),label:v('ad-sig2-label')},
+    footer:v('ad-footer'),
+  };
+}
+function updateAdmitPreview(){
+  const settings=collectAdmitDesignSettings();
+  const iframe=document.getElementById('admit-preview-iframe');if(!iframe)return;
+  iframe.srcdoc=generateAdmitHtml(DEMO_APP,settings,true);
+}
+async function saveAdmitDesign(){
+  const value=collectAdmitDesignSettings();currentAdmitSettings=deepMerge(DEFAULT_ADMIT,value);
+  setLoading(true);const r=await api('saveSettings',{key:'admit_card_settings',value});setLoading(false);
+  if(r.error){toast(r.error,'error');return;}toast('Admit card design saved','success');
+}
+function resetAdmitDesign(){
+  populateAdmitDesigner(DEFAULT_ADMIT);updateAdmitPreview();
+}
+
+/* ─── Live designer listeners ─────────────────────── */
+function initDesignerListeners(){
+  const fdUpdate=debounce(updateFormPreview,400);
+  const adUpdate=debounce(updateAdmitPreview,400);
+  document.getElementById('form-designer-panel')?.addEventListener('input',fdUpdate);
+  document.getElementById('form-designer-panel')?.addEventListener('change',fdUpdate);
+  document.getElementById('admit-designer-panel')?.addEventListener('input',adUpdate);
+  document.getElementById('admit-designer-panel')?.addEventListener('change',adUpdate);
+}
+
+/* ─── Counters ───────────────────────────────────── */
+async function loadCounters(){
+  const r=await api('listCounters',{});
+  const el=document.getElementById('counters-table');if(!el)return;
+  if(!r.counters||!r.counters.length){el.innerHTML='<p class="text-sm text-slate-400">No counters yet. Index IDs will be assigned when applications are saved.</p>';return;}
+  el.innerHTML=`<table class="w-full text-sm"><thead><tr class="bg-slate-50 text-left">
+    <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Year</th>
+    <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Class</th>
+    <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Counter</th>
+    <th class="px-3 py-2 text-right text-[10px] font-black uppercase text-slate-500">Reset</th>
+    </tr></thead><tbody>
+    ${r.counters.map(c=>`<tr class="border-t border-slate-100">
+      <td class="px-3 py-2 font-bold">${c.year}</td>
+      <td class="px-3 py-2">${c.class}</td>
+      <td class="px-3 py-2 font-black text-blue-600">${c.counter}</td>
+      <td class="px-3 py-2 text-right"><button onclick="resetCounter('${c.year}','${c.class}')" class="text-[10px] font-black uppercase text-red-400 hover:text-red-600 px-2 py-1 hover:bg-red-50 rounded-lg transition-all">Reset</button></td>
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+async function resetCounter(year,cls){
+  if(!await openConfirm(`Reset counter for ${cls} ${year}? This may cause duplicate Index IDs.`,'Reset'))return;
+  const r=await api('resetCounter',{year,cls});
+  if(r.error){toast(r.error,'error');return;}toast('Counter reset','success');loadCounters();
+}
+
+/* ─── Keyboard shortcuts ──────────────────────────── */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')closeConfirm(false);
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();const fv=document.getElementById('view-form');if(fv&&!fv.classList.contains('hidden'))saveApplication();}
 });
