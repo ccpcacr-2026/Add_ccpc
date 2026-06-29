@@ -390,7 +390,7 @@
 
       <!-- Tab: Index Pattern -->
       <div id="at-index" class="atab-panel">
-        <div class="max-w-2xl mx-auto space-y-4">
+        <div class="max-w-4xl mx-auto space-y-4">
           <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
             <div class="space-y-1.5">
               <label class="flbl">Pattern String</label>
@@ -433,14 +433,14 @@
                 <p class="flbl">Class Codes</p>
                 <button onclick="indexAddCode('class')" class="nav-btn" style="font-size:9px;padding:3px 9px">+ Add Class</button>
               </div>
-              <div id="class-codes-table" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2"></div>
+              <div id="class-codes-table" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px"></div>
             </div>
             <div class="space-y-2">
               <div style="display:flex;align-items:center;justify-content:space-between">
                 <p class="flbl">Category Codes</p>
                 <button onclick="indexAddCode('cat')" class="nav-btn" style="font-size:9px;padding:3px 9px">+ Add Category</button>
               </div>
-              <div id="cat-codes-table" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+              <div id="cat-codes-table" style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px"></div>
             </div>
 
             <button onclick="saveIndexSettings()" class="w-full py-3 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-black transition-all">
@@ -791,81 +791,100 @@
 
       <!-- Tab: Circular Builder -->
       <div id="at-circular" class="atab-panel hidden">
-        <div style="max-width:940px;margin:0 auto;padding:10px 0">
+        <div class="circ-layout">
 
-          <!-- Info card -->
-          <div class="circ-card" style="margin-bottom:12px">
-            <div class="circ-card-hdr">Circular Info</div>
-            <div style="display:grid;grid-template-columns:1fr 110px 110px;gap:8px;margin-bottom:8px">
-              <div><label class="flbl">Title</label><input id="circ-title" class="finput" placeholder="Admission Circular 2026"></div>
-              <div><label class="flbl">Session / Year</label><input id="circ-session" class="finput" placeholder="2026"></div>
-              <div><label class="flbl">Published On</label><input id="circ-date" class="finput" type="date"></div>
-            </div>
-            <!-- Application Window -->
-            <div style="display:grid;grid-template-columns:120px 90px 120px 90px 1fr;gap:6px;margin-bottom:8px;align-items:end">
-              <div><label class="flbl">Opens (Date)</label><input id="circ-start-date" class="finput" type="date"></div>
-              <div><label class="flbl">Time</label><input id="circ-start-time" class="finput" type="time"></div>
-              <div><label class="flbl">Closes (Date)</label><input id="circ-end-date" class="finput" type="date"></div>
-              <div><label class="flbl">Time</label><input id="circ-end-time" class="finput" type="time"></div>
-              <div><label class="flbl">Timezone</label>
-                <select id="circ-tz" class="finput finput-sm" style="width:100%">
-                  <option value="GMT+0">GMT+0 (UTC)</option>
-                  <option value="GMT+1">GMT+1</option><option value="GMT+2">GMT+2</option>
-                  <option value="GMT+3">GMT+3</option><option value="GMT+4">GMT+4</option>
-                  <option value="GMT+5">GMT+5</option>
-                  <option value="GMT+5:30">GMT+5:30 (IST)</option>
-                  <option value="GMT+6" selected>GMT+6 (BST/Dhaka)</option>
-                  <option value="GMT+6:30">GMT+6:30</option>
-                  <option value="GMT+7">GMT+7</option><option value="GMT+8">GMT+8</option>
-                  <option value="GMT+9">GMT+9</option><option value="GMT+9:30">GMT+9:30</option>
-                  <option value="GMT+10">GMT+10</option><option value="GMT+11">GMT+11</option>
-                  <option value="GMT+12">GMT+12</option>
-                  <option value="GMT-1">GMT-1</option><option value="GMT-2">GMT-2</option>
-                  <option value="GMT-3">GMT-3</option><option value="GMT-4">GMT-4</option>
-                  <option value="GMT-5">GMT-5 (EST)</option><option value="GMT-6">GMT-6 (CST)</option>
-                  <option value="GMT-7">GMT-7 (MST)</option><option value="GMT-8">GMT-8 (PST)</option>
-                </select>
+          <!-- ── TOP STRIP: Info + Save ───────────────── -->
+          <div class="circ-top-strip">
+            <div class="circ-card" style="flex:1;min-width:0">
+              <!-- Row 1: title / session / dates -->
+              <div class="circ-info-grid">
+                <div style="flex:2;min-width:150px"><label class="flbl">Circular Title</label><input id="circ-title" class="finput finput-sm" placeholder="Admission Circular 2026"></div>
+                <div style="width:80px"><label class="flbl">Session</label><input id="circ-session" class="finput finput-sm" placeholder="2026"></div>
+                <div style="width:130px"><label class="flbl">Published On</label><input id="circ-date" class="finput finput-sm" type="date"></div>
+                <div class="circ-info-sep"></div>
+                <div style="width:130px"><label class="flbl">Opens</label>
+                  <div style="display:flex;gap:3px">
+                    <input id="circ-start-date" class="finput finput-sm" type="date" style="flex:1;min-width:0">
+                    <input id="circ-start-time" class="finput finput-sm" type="time" style="width:76px">
+                  </div>
+                </div>
+                <div style="width:130px"><label class="flbl">Closes</label>
+                  <div style="display:flex;gap:3px">
+                    <input id="circ-end-date" class="finput finput-sm" type="date" style="flex:1;min-width:0">
+                    <input id="circ-end-time" class="finput finput-sm" type="time" style="width:76px">
+                  </div>
+                </div>
+                <div style="width:140px"><label class="flbl">Timezone</label>
+                  <select id="circ-tz" class="finput finput-sm" style="width:100%">
+                    <option value="GMT+0">GMT+0 (UTC)</option>
+                    <option value="GMT+1">GMT+1</option><option value="GMT+2">GMT+2</option>
+                    <option value="GMT+3">GMT+3</option><option value="GMT+4">GMT+4</option>
+                    <option value="GMT+5">GMT+5</option><option value="GMT+5:30">GMT+5:30 (IST)</option>
+                    <option value="GMT+6" selected>GMT+6 (Dhaka)</option>
+                    <option value="GMT+6:30">GMT+6:30</option><option value="GMT+7">GMT+7</option>
+                    <option value="GMT+8">GMT+8</option><option value="GMT+9">GMT+9</option>
+                    <option value="GMT+9:30">GMT+9:30</option><option value="GMT+10">GMT+10</option>
+                    <option value="GMT+11">GMT+11</option><option value="GMT+12">GMT+12</option>
+                    <option value="GMT-3">GMT-3</option><option value="GMT-4">GMT-4</option>
+                    <option value="GMT-5">GMT-5 (EST)</option><option value="GMT-6">GMT-6 (CST)</option>
+                    <option value="GMT-7">GMT-7 (MST)</option><option value="GMT-8">GMT-8 (PST)</option>
+                  </select>
+                </div>
+              </div>
+              <!-- Row 2: description + symbol toggle -->
+              <div class="circ-info-grid" style="margin-top:6px">
+                <div style="flex:1;min-width:0"><label class="flbl">Description / Notes</label>
+                  <input id="circ-desc" class="finput finput-sm" placeholder="Optional notes for the circular…">
+                </div>
+                <div style="align-self:flex-end;padding-bottom:2px">
+                  <label class="toggle-lbl" style="white-space:nowrap">
+                    <input type="checkbox" id="circ-use-symbol"> Symbol-based counter
+                  </label>
+                </div>
               </div>
             </div>
-            <div style="margin-bottom:8px"><label class="flbl">Description / Notes</label><textarea id="circ-desc" class="finput" rows="2" placeholder="Optional notes visible on the circular…"></textarea></div>
-            <label class="toggle-lbl">
-              <input type="checkbox" id="circ-use-symbol">
-              Use symbol-based serial counter — entries sharing the same symbol will draw from one shared serial sequence
-            </label>
-          </div>
-
-          <!-- Dimensions -->
-          <div class="circ-section-hdr">
-            <span class="sec-lbl">Dimensions <span id="circ-dim-count" style="color:#94a3b8;font-weight:600"></span></span>
-            <button class="nav-btn" onclick="circAddDimension()">+ Add Dimension</button>
-          </div>
-          <div id="circ-dims" style="margin-bottom:12px"></div>
-
-          <!-- Application Option Fields config -->
-          <div class="circ-section-hdr">
-            <span class="sec-lbl">Application Option Fields <span style="color:#94a3b8;font-size:9px;font-weight:500;text-transform:none;letter-spacing:0">(columns shown in each entry's options sub-table)</span></span>
-            <button class="nav-btn" onclick="circAddOptField()" style="font-size:9px;padding:3px 9px">+ Add Field</button>
-          </div>
-          <div id="circ-opt-fields" style="margin-bottom:12px"></div>
-
-          <!-- Entries -->
-          <div class="circ-section-hdr">
-            <span class="sec-lbl">Circular Entries <span id="circ-ent-count" style="color:#94a3b8;font-weight:600"></span></span>
-            <div style="display:flex;gap:6px">
-              <button class="nav-btn" onclick="circGenerateCombinations()" title="Auto-create one entry per dimension-value combination">⚙ Generate All Combos</button>
-              <button class="nav-btn" onclick="circAddEntry()">+ Add Entry</button>
+            <!-- Save actions -->
+            <div style="display:flex;flex-direction:column;gap:6px;justify-content:center;flex-shrink:0">
+              <button class="nav-btn nav-btn-primary" onclick="saveCircular()" style="white-space:nowrap">💾 Save Circular</button>
+              <button class="nav-btn" onclick="loadCircular()">↺ Reload</button>
+              <span id="circ-save-note" class="pp-note" style="margin:0;font-size:9px;text-align:center"></span>
             </div>
           </div>
-          <div id="circ-entries" style="margin-bottom:12px"></div>
 
-          <!-- Actions -->
-          <div style="display:flex;gap:8px;align-items:center">
-            <button class="nav-btn nav-btn-primary" onclick="saveCircular()">Save Circular</button>
-            <button class="nav-btn" onclick="loadCircular()">↺ Reload</button>
-            <span id="circ-save-note" class="pp-note" style="margin:0"></span>
+          <!-- ── MIDDLE STRIP: Opt Fields ─────────────── -->
+          <div class="circ-opt-strip">
+            <span class="sec-lbl" style="white-space:nowrap;align-self:center">Option Fields:</span>
+            <div id="circ-opt-fields" style="flex:1;min-width:0"></div>
+            <button class="nav-btn" onclick="circAddOptField()" style="font-size:9px;padding:3px 9px;flex-shrink:0">+ Field</button>
           </div>
 
-        </div>
+          <!-- ── MAIN PANEL: Dims (left) + Entries (right) -->
+          <div class="circ-main-panel">
+
+            <!-- Left: Dimensions -->
+            <div class="circ-left-panel">
+              <div class="circ-panel-hdr">
+                <span class="sec-lbl">Dimensions <span id="circ-dim-count" style="color:#94a3b8;font-weight:600"></span></span>
+                <button class="nav-btn" onclick="circAddDimension()" style="padding:2px 8px;font-size:9px">+ Dim</button>
+              </div>
+              <div id="circ-dims" style="overflow-y:auto;flex:1"></div>
+            </div>
+
+            <!-- Right: Entries -->
+            <div class="circ-right-panel">
+              <div class="circ-panel-hdr">
+                <span class="sec-lbl">Circular Entries <span id="circ-ent-count" style="color:#94a3b8;font-weight:600"></span></span>
+                <div style="display:flex;gap:5px">
+                  <button class="nav-btn" onclick="circGenerateCombinations()" style="font-size:9px;padding:2px 8px" title="Auto-create one entry per value combination">⚙ Generate</button>
+                  <button class="nav-btn" onclick="circAddEntry()" style="font-size:9px;padding:2px 8px">+ Entry</button>
+                </div>
+              </div>
+              <div id="circ-entries" style="overflow:auto;flex:1"></div>
+            </div>
+
+          </div><!-- /circ-main-panel -->
+
+        </div><!-- /circ-layout -->
       </div>
 
     </div><!-- /view-admin -->

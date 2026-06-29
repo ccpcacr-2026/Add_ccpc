@@ -67,7 +67,7 @@ function buildIndexId(settings, session, cls, counter) {
   const classCodes  = settings.classCodes  || {};
   const catCodes    = settings.categoryCodes || {};
   const yr          = String(session || new Date().getFullYear());
-  const classCode   = classCodes[cls]  || (cls  || 'XX').replace(/\s/g,'').slice(0,2).toUpperCase();
+  const classCode   = classCodes[cls]  || '';
   const seq         = counter || 1;
   return pattern
     .replace('{YYYY}', yr)

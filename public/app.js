@@ -850,7 +850,7 @@ function renderCodeTable(containerId,codes,prefix,circKeys){
   el.innerHTML=Object.entries(codes).map(function(e){
     const k=e[0],val=e[1],fromCirc=ck.has(k);
     return '<div class="flex items-center gap-1 '+(fromCirc?'bg-indigo-50 border-indigo-200':'bg-slate-50 border-slate-200')+' border rounded-lg px-2 py-1.5">'+
-      '<span class="text-xs font-bold text-slate-700 shrink-0" style="min-width:72px">'+escH(k)+(fromCirc?'<span style="font-size:8px;color:#6366f1;margin-left:3px" title="From Circular">●</span>':'')+'</span>'+
+      '<span class="text-xs font-bold text-slate-700 shrink-0" style="min-width:110px">'+escH(k)+(fromCirc?'<span style="font-size:8px;color:#6366f1;margin-left:3px" title="From Circular">●</span>':'')+'</span>'+
       '<span class="text-slate-300 px-0.5">→</span>'+
       '<input type="text" data-prefix="'+prefix+'" data-key="'+k+'" value="'+escH(val)+'" maxlength="6"'+
         ' class="finput finput-sm font-mono text-center font-black text-blue-600" style="min-width:0;flex:1"'+
@@ -913,7 +913,7 @@ function collectIndexSettings(){
 function buildIndexPreview(settings,cls,cat,session){
   const p=settings.pattern||'{YY}{CLASS}{SEQ4}';
   const yr=String(session||new Date().getFullYear());
-  const classCode=(settings.classCodes||{})[cls]||(cls||'XX').slice(0,2).toUpperCase();
+  const classCode=(settings.classCodes||{})[cls]||'';
   const catCode=(settings.categoryCodes||{})[cat]||'X';
   const seq=1;
   return p.replace('{YYYY}',yr).replace('{YY}',yr.slice(-2)).replace('{CLASS}',classCode).replace('{CAT}',catCode)
@@ -1274,33 +1274,31 @@ function renderCircularDimensions(){
   const el=document.getElementById('circ-dims');if(!el)return;
   const cnt=document.getElementById('circ-dim-count');if(cnt)cnt.textContent='('+dims.length+')';
   if(!dims.length){
-    el.innerHTML='<div class="circ-empty">No dimensions yet — click "+ Add Dimension" to create Class, Version, Category, etc.</div>';
+    el.innerHTML='<div class="circ-empty" style="padding:12px;text-align:center">No dimensions.<br>Click "+ Dim"</div>';
     return;
   }
   el.innerHTML=dims.map(function(dim){
     var opts=(dim.options||[]).map(function(opt,oi){
-      return '<div class="circ-opt-row">'+
-        '<input class="finput finput-sm" style="width:100px" placeholder="Value (e.g. One)" value="'+circEscH(opt.value)+'" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'value\',this.value)" title="Application field value">'+
-        '<input class="finput finput-sm" style="flex:1;min-width:80px" placeholder="Label (display)" value="'+circEscH(opt.label)+'" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'label\',this.value)" title="How it appears in the circular">'+
-        '<input class="finput finput-sm" style="width:64px;text-align:center;font-weight:900;font-family:monospace" placeholder="Symbol" value="'+circEscH(opt.symbol)+'" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'symbol\',this.value)" title="Serial-counter key. Options with the same symbol share one counter.">'+
-        '<button class="nav-btn nav-btn-danger" style="padding:3px 7px;font-size:11px;flex-shrink:0" onclick="circDelOpt(\''+dim.id+'\','+oi+')">×</button>'+
+      return '<div class="circ-opt-row2">'+
+        '<input class="finput finput-sm circ-opt-val" placeholder="Value" value="'+circEscH(opt.value)+
+          '" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'value\',this.value)" title="Must match form field value exactly">'+
+        '<input class="finput finput-sm circ-opt-lbl" placeholder="Label" value="'+circEscH(opt.label)+
+          '" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'label\',this.value)" title="Display label">'+
+        '<input class="finput finput-sm circ-opt-sym" placeholder="Sym" value="'+circEscH(opt.symbol)+
+          '" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'symbol\',this.value)" title="Counter symbol — same symbol = shared serial">'+
+        '<button onclick="circDelOpt(\''+dim.id+'\','+oi+')" class="circ-row-del">×</button>'+
         '</div>';
     }).join('');
-    return '<div class="circ-dim-card">'+
-      '<div class="circ-dim-hdr">'+
-        '<input class="finput finput-sm" style="font-weight:900;width:160px" placeholder="Dimension name" value="'+circEscH(dim.label)+'" oninput="circUpdDim(\''+dim.id+'\',\'label\',this.value)">'+
-        '<div style="display:flex;gap:5px">'+
-          '<button class="nav-btn" style="padding:3px 9px;font-size:10px" onclick="circAddOpt(\''+dim.id+'\')">+ Option</button>'+
-          '<button class="nav-btn nav-btn-danger" style="padding:3px 9px;font-size:10px" onclick="circDelDim(\''+dim.id+'\')">Delete</button>'+
-        '</div>'+
+    return '<div class="circ-dim-card2">'+
+      '<div class="circ-dim-hdr2">'+
+        '<input class="finput finput-sm" style="font-weight:900;min-width:0;flex:1" placeholder="Dimension name" value="'+circEscH(dim.label)+
+          '" oninput="circUpdDim(\''+dim.id+'\',\'label\',this.value)">'+
+        '<button class="nav-btn" style="padding:1px 7px;font-size:9px;white-space:nowrap" onclick="circAddOpt(\''+dim.id+'\')">+ Opt</button>'+
+        '<button style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:14px;font-weight:900;padding:0 2px" onclick="circDelDim(\''+dim.id+'\')">×</button>'+
       '</div>'+
-      '<div class="circ-opt-hdr">'+
-        '<span style="width:100px">Value</span>'+
-        '<span style="flex:1;min-width:80px">Display Label</span>'+
-        '<span style="width:64px;text-align:center">Symbol</span>'+
-        '<span style="width:30px"></span>'+
-      '</div>'+
-      (opts||'<div class="circ-empty" style="padding:4px 0">No options yet — click "+ Option"</div>')+
+      (dim.options&&dim.options.length
+        ? '<div class="circ-opt-hdr2"><span>Value</span><span>Label</span><span style="text-align:center">Sym</span><span></span></div>'+opts
+        : '<div class="circ-empty" style="font-size:9px;padding:3px 0">No options — click "+ Opt"</div>')+
       '</div>';
   }).join('');
 }
@@ -1348,7 +1346,7 @@ function renderCircularEntries(){
   const el=document.getElementById('circ-entries');if(!el)return;
   const cnt=document.getElementById('circ-ent-count');if(cnt)cnt.textContent='('+entries.length+')';
   if(!entries.length){
-    el.innerHTML='<div class="circ-empty">No entries yet — click "+ Add Entry" or "⚙ Generate All Combos".</div>';
+    el.innerHTML='<div class="circ-empty" style="padding:24px;text-align:center">No entries yet.<br><span style="font-size:10px">Click &ldquo;+ Entry&rdquo; or &ldquo;⚙ Generate&rdquo; above.</span></div>';
     return;
   }
 
@@ -1391,39 +1389,46 @@ function renderCircularEntries(){
         '</tr>';
     }).join('');
     var noFields=!aof.length?'<span class="pp-note" style="margin-left:6px">Add fields above to track more details per option</span>':'';
-    var subContent='<div style="padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0">'+
-      '<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#6366f1;margin-bottom:6px">Application Options '+(opts.length?'('+opts.length+')':'— none yet')+noFields+'</div>'+
-      '<table class="circ-sub-table">'+
-        '<thead><tr><th>Option / Quota Name</th>'+aofThs+'<th style="width:28px"></th></tr></thead>'+
-        '<tbody>'+optsRows+'</tbody>'+
-      '</table>'+
-      '<button class="nav-btn" style="font-size:9px;padding:3px 9px;margin-top:5px" onclick="circAddSubOpt(\''+entry.id+'\')">+ Add Option</button>'+
+    // Sub-row content: sym-override + note + application options
+    var subContent='<div class="circ-sub-content">'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px">'+
+        '<div style="display:flex;align-items:center;gap:5px">'+
+          '<span class="flbl" style="white-space:nowrap">Symbol Override:</span>'+
+          '<input class="finput finput-sm" style="width:80px;font-family:monospace;font-weight:900" placeholder="auto" value="'+circEscH(entry.symbolOverride||'')+
+            '" oninput="circUpdEntry(\''+entry.id+'\',\'symbolOverride\',this.value)" title="Leave blank for auto-computed symbol">'+
+          '<span class="circ-sym-auto" title="Auto-computed">'+circEscH(autoSym||'–')+'</span>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:5px;flex:1;min-width:120px">'+
+          '<span class="flbl">Note:</span>'+
+          '<input class="finput finput-sm" style="flex:1" placeholder="optional note" value="'+circEscH(entry.note||'')+
+            '" oninput="circUpdEntry(\''+entry.id+'\',\'note\',this.value)">'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#6366f1;margin-bottom:5px">'+
+        'Application Options '+(opts.length?'('+opts.length+')':'— none')+noFields+
+      '</div>'+
+      (opts.length||aof.length
+        ?'<table class="circ-sub-table"><thead><tr><th>Option / Quota Name</th>'+aofThs+'<th style="width:24px"></th></tr></thead>'+
+          '<tbody>'+optsRows+'</tbody></table>'
+        :'<div class="circ-empty" style="font-size:9px">No option fields configured — click "+ Field" to add columns</div>')+
+      '<button class="nav-btn" style="font-size:9px;padding:2px 8px;margin-top:5px" onclick="circAddSubOpt(\''+entry.id+'\')">+ Option</button>'+
     '</div>';
 
     var isOpen=openSubs.has(entry.id);
+    var subBtn='<button class="circ-sub-btn'+(opts.length?' circ-sub-btn-active':'')+'" onclick="circToggleSub(\''+entry.id+'\')" title="Options / details">'+(isOpen?'▲':'▼')+(opts.length?' '+opts.length:'')+'</button>';
     return '<tr class="circ-entry-row'+(entry.active?'':' circ-entry-off')+'">'+
-        '<td class="text-center" style="font-size:9px;color:#94a3b8;font-weight:900">'+(ei+1)+'</td>'+
-        '<td style="white-space:nowrap"><span class="circ-entry-sym">'+circEscH(displaySym)+'</span></td>'+
+        '<td style="font-size:9px;color:#94a3b8;font-weight:900;text-align:center">'+(ei+1)+'</td>'+
+        '<td><span class="circ-entry-sym">'+circEscH(displaySym)+'</span></td>'+
         dimTds+
-        '<td>'+
-          '<div style="display:flex;align-items:center;gap:3px">'+
-            '<input class="finput finput-sm" style="width:48px;font-family:monospace;font-weight:900" placeholder="auto" value="'+circEscH(entry.symbolOverride||'')+
-              '" oninput="circUpdEntry(\''+entry.id+'\',\'symbolOverride\',this.value)" title="Override symbol (leave blank for auto)">'+
-          '</div>'+
-        '</td>'+
-        '<td><input class="finput finput-sm" style="width:52px;text-align:center" type="number" min="0" placeholder="0" value="'+(entry.seats||'')+
+        '<td style="text-align:center"><input class="finput finput-sm" style="width:52px;text-align:center" type="number" min="0" placeholder="—" value="'+(entry.seats||'')+
           '" oninput="circUpdEntry(\''+entry.id+'\',\'seats\',+(this.value)||0)"></td>'+
-        '<td style="text-align:center">'+
-          '<input type="checkbox"'+(entry.active?' checked':'')+
-            ' onchange="circUpdEntry(\''+entry.id+'\',\'active\',this.checked)" style="width:14px;height:14px;accent-color:#2563eb;cursor:pointer">'+
-        '</td>'+
-        '<td><input class="finput finput-sm" style="min-width:80px;width:100%" placeholder="note" value="'+circEscH(entry.note||'')+
-          '" oninput="circUpdEntry(\''+entry.id+'\',\'note\',this.value)"></td>'+
-        '<td style="white-space:nowrap">'+
-          '<button class="nav-btn" style="padding:2px 6px;font-size:10px" onclick="circToggleSub(\''+entry.id+'\')" title="Application options">'+(opts.length?'⚙'+opts.length:'⚙')+'</button> '+
-          '<button class="nav-btn" style="padding:2px 6px;font-size:10px" onclick="circMoveEntry(\''+entry.id+'\','+ei+',-1)" '+(ei===0?'disabled':'')+'>↑</button>'+
-          '<button class="nav-btn" style="padding:2px 6px;font-size:10px" onclick="circMoveEntry(\''+entry.id+'\','+ei+',1)" '+(ei===entries.length-1?'disabled':'')+'>↓</button>'+
-          '<button style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:15px;font-weight:900;padding:0 3px" onclick="circDelEntry(\''+entry.id+'\')">×</button>'+
+        '<td style="text-align:center"><input type="checkbox"'+(entry.active?' checked':'')+
+          ' onchange="circUpdEntry(\''+entry.id+'\',\'active\',this.checked)" style="width:14px;height:14px;accent-color:#2563eb;cursor:pointer"></td>'+
+        '<td style="text-align:center;white-space:nowrap">'+
+          subBtn+' '+
+          '<button class="circ-row-btn" onclick="circMoveEntry(\''+entry.id+'\','+ei+',-1)" '+(ei===0?'disabled':'')+'>↑</button>'+
+          '<button class="circ-row-btn" onclick="circMoveEntry(\''+entry.id+'\','+ei+',1)" '+(ei===entries.length-1?'disabled':'')+'>↓</button>'+
+          '<button class="circ-row-del" onclick="circDelEntry(\''+entry.id+'\')">×</button>'+
         '</td>'+
       '</tr>'+
       '<tr class="circ-sub-row'+(isOpen?'':' hidden')+'" data-eid="'+entry.id+'">'+
@@ -1431,16 +1436,17 @@ function renderCircularEntries(){
       '</tr>';
   }).join('');
 
-  el.innerHTML='<div style="overflow-x:auto"><table class="circ-tbl" style="width:100%;border-collapse:collapse">'+
+  el.innerHTML='<table class="circ-tbl">'+
     '<thead><tr>'+
-      '<th style="width:30px">#</th>'+
+      '<th style="width:26px">#</th>'+
       '<th style="white-space:nowrap">Symbol</th>'+
       dimThs+
-      '<th style="white-space:nowrap">Sym Override</th>'+
-      '<th>Seats</th><th>Active</th><th>Note</th><th>Actions</th>'+
+      '<th style="width:58px">Seats</th>'+
+      '<th style="width:44px">Active</th>'+
+      '<th style="width:90px">Actions</th>'+
     '</tr></thead>'+
     '<tbody>'+rows+'</tbody>'+
-  '</table></div>';
+  '</table>';
 }
 function circToggleSub(entId){
   const sub=document.querySelector('.circ-sub-row[data-eid="'+entId+'"]');
