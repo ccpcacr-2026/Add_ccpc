@@ -35,6 +35,33 @@ async function sbRpc(fn, params = {}) {
   return text ? JSON.parse(text) : null;
 }
 
+function circSymbolServer(entry, dims) {
+  var parts = (dims || []).map(function(dim) {
+    var sel = ((entry.selections || {})[dim.id]) || [];
+    if (!sel.length) return null;
+    var syms = [];
+    (dim.options || []).forEach(function(opt) {
+      if (sel.includes(opt.value) && opt.symbol && !syms.includes(opt.symbol)) syms.push(opt.symbol);
+    });
+    return syms.join('') || null;
+  }).filter(Boolean);
+  return parts.join('-');
+}
+function findCircularEntry(appData, circ) {
+  var dims = circ.dimensions || [];
+  var LABEL_FIELD = {'Class':'class','Version':'version','Category':'category','Group':'group','Section':'section'};
+  return (circ.entries || []).find(function(entry) {
+    if (!entry.active) return false;
+    return dims.every(function(dim) {
+      var field = LABEL_FIELD[dim.label];
+      if (!field) return true;
+      var sel = ((entry.selections || {})[dim.id]) || [];
+      if (!sel.length) return true;
+      return sel.includes(appData[field]);
+    });
+  });
+}
+
 function buildIndexId(settings, session, cls, counter) {
   const pattern     = settings.pattern || '{YY}{CLASS}{SEQ4}';
   const classCodes  = settings.classCodes  || {};
@@ -91,12 +118,21 @@ export async function POST(req) {
       const trackingId = await sbRpc('generate_tracking_id', {});
       data.tracking_id = trackingId || Math.random().toString(16).slice(2,8).toUpperCase();
 
-      // Index ID from pattern + atomic counter
-      const settingsRows = await sb('admission_settings?key=eq.index_settings');
-      const indexSettings = settingsRows?.[0]?.value || {};
+      // Index ID from pattern + atomic counter (symbol-based if circular is configured)
+      const settingsRows = await sb('admission_settings?key=in.(index_settings,circular_settings)');
+      const indexSettings = settingsRows?.find(r=>r.key==='index_settings')?.value || {};
+      const circSettings  = settingsRows?.find(r=>r.key==='circular_settings')?.value || {};
+      let counterKey = data.class || '';
+      if (circSettings.useSymbolCounter && circSettings.entries && circSettings.dimensions) {
+        const matched = findCircularEntry(data, circSettings);
+        if (matched) {
+          const sym = matched.symbolOverride || circSymbolServer(matched, circSettings.dimensions);
+          if (sym) counterKey = sym;
+        }
+      }
       const counter = await sbRpc('increment_index_counter', {
         p_year:  String(data.session || new Date().getFullYear()),
-        p_class: data.class || '',
+        p_class: counterKey,
       });
       data.index_id    = buildIndexId(indexSettings, data.session, data.class, counter);
       data.created_at  = new Date().toISOString();

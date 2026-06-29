@@ -188,6 +188,7 @@ function showAdminTab(id,btn){
   if(id==='at-form'){if(typeof loadFormTemplates==='function')loadFormTemplates();else setTimeout(function(){initCanvas();fdZoomFit();},80);}
   if(id==='at-admit'){if(typeof loadAdmitTemplates==='function')loadAdmitTemplates();else setTimeout(updateAdmitPreview,100);}
   if(id==='at-counters')loadCounters();
+  if(id==='at-circular')loadCircular();
 }
 function setTopbarBtn(dashboard,admin,newApp){
   const d=document.getElementById('btn-dashboard'),a=document.getElementById('btn-admin'),n=document.getElementById('btn-new');
@@ -1093,6 +1094,276 @@ function admitNewTpl(){
   currentAdmitSettings=deepMerge(DEFAULT_ADMIT,{});
   populateAdmitDesigner(currentAdmitSettings);updateAdmitPreview();renderAdmitTplBar();
   toast('"'+name.trim()+'" started — edit settings and Save','info');
+}
+
+/* ═══════════════════════════════════════════════════
+   CIRCULAR BUILDER
+   ═══════════════════════════════════════════════════ */
+const DEFAULT_CIRCULAR={
+  title:'Admission Circular',session:new Date().getFullYear().toString(),
+  publishedDate:'',description:'',useSymbolCounter:false,
+  dimensions:[
+    {id:'cdim_class',    label:'Class',    options:[]},
+    {id:'cdim_version',  label:'Version',  options:[]},
+    {id:'cdim_category', label:'Category', options:[]},
+  ],
+  entries:[]
+};
+let currentCircular=null;
+
+/* ── helpers ── */
+function circEscH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function circSymbol(entry,dims){
+  var parts=(dims||[]).map(function(dim){
+    var sel=((entry.selections||{})[dim.id])||[];
+    if(!sel.length)return null;
+    var syms=[];
+    (dim.options||[]).forEach(function(opt){
+      if(sel.includes(opt.value)&&opt.symbol&&!syms.includes(opt.symbol))syms.push(opt.symbol);
+    });
+    return syms.join('')||null;
+  }).filter(Boolean);
+  return parts.join('-');
+}
+function circEntryLabel(entry,dims){
+  return (dims||[]).map(function(dim){
+    var sel=((entry.selections||{})[dim.id])||[];
+    if(!sel.length)return null;
+    var labels=sel.map(function(v){
+      var opt=(dim.options||[]).find(function(o){return o.value===v;});
+      return opt?opt.label||opt.value:v;
+    });
+    return labels.join('+');
+  }).filter(Boolean).join(' — ');
+}
+
+/* ── Load / Save ── */
+async function loadCircular(){
+  setLoading(true);const r=await api('getSettings',{});setLoading(false);
+  const s=r.settings||{};
+  const saved=s.circular_settings||{};
+  // Deep merge preserving arrays
+  currentCircular=Object.assign({},DEFAULT_CIRCULAR,saved);
+  if(!Array.isArray(currentCircular.dimensions))currentCircular.dimensions=DEFAULT_CIRCULAR.dimensions.map(function(d){return Object.assign({},d);});
+  if(!Array.isArray(currentCircular.entries))currentCircular.entries=[];
+  populateCircularInfo();
+  renderCircularDimensions();
+  renderCircularEntries();
+}
+function populateCircularInfo(){
+  const c=currentCircular;
+  document.getElementById('circ-title').value=c.title||'';
+  document.getElementById('circ-session').value=c.session||'';
+  document.getElementById('circ-date').value=c.publishedDate||'';
+  document.getElementById('circ-desc').value=c.description||'';
+  document.getElementById('circ-use-symbol').checked=!!c.useSymbolCounter;
+}
+async function saveCircular(){
+  if(!currentCircular){toast('Load circular first','warn');return;}
+  currentCircular.title=document.getElementById('circ-title').value.trim()||currentCircular.title;
+  currentCircular.session=document.getElementById('circ-session').value.trim()||currentCircular.session;
+  currentCircular.publishedDate=document.getElementById('circ-date').value;
+  currentCircular.description=document.getElementById('circ-desc').value;
+  currentCircular.useSymbolCounter=document.getElementById('circ-use-symbol').checked;
+  setLoading(true);const r=await api('saveSettings',{key:'circular_settings',value:currentCircular});setLoading(false);
+  if(r.error){toast(r.error,'error');return;}
+  const note=document.getElementById('circ-save-note');
+  if(note){note.textContent='Saved '+new Date().toLocaleTimeString();setTimeout(function(){note.textContent='';},3000);}
+  toast('Circular saved','success');
+}
+
+/* ── Dimensions ── */
+function renderCircularDimensions(){
+  const c=currentCircular;if(!c)return;
+  const dims=c.dimensions||[];
+  const el=document.getElementById('circ-dims');if(!el)return;
+  const cnt=document.getElementById('circ-dim-count');if(cnt)cnt.textContent='('+dims.length+')';
+  if(!dims.length){
+    el.innerHTML='<div class="circ-empty">No dimensions yet — click "+ Add Dimension" to create Class, Version, Category, etc.</div>';
+    return;
+  }
+  el.innerHTML=dims.map(function(dim){
+    var opts=(dim.options||[]).map(function(opt,oi){
+      return '<div class="circ-opt-row">'+
+        '<input class="finput finput-sm" style="width:100px" placeholder="Value (e.g. One)" value="'+circEscH(opt.value)+'" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'value\',this.value)" title="Application field value">'+
+        '<input class="finput finput-sm" style="flex:1;min-width:80px" placeholder="Label (display)" value="'+circEscH(opt.label)+'" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'label\',this.value)" title="How it appears in the circular">'+
+        '<input class="finput finput-sm" style="width:64px;text-align:center;font-weight:900;font-family:monospace" placeholder="Symbol" value="'+circEscH(opt.symbol)+'" oninput="circUpdOpt(\''+dim.id+'\','+oi+',\'symbol\',this.value)" title="Serial-counter key. Options with the same symbol share one counter.">'+
+        '<button class="nav-btn nav-btn-danger" style="padding:3px 7px;font-size:11px;flex-shrink:0" onclick="circDelOpt(\''+dim.id+'\','+oi+')">×</button>'+
+        '</div>';
+    }).join('');
+    return '<div class="circ-dim-card">'+
+      '<div class="circ-dim-hdr">'+
+        '<input class="finput finput-sm" style="font-weight:900;width:160px" placeholder="Dimension name" value="'+circEscH(dim.label)+'" oninput="circUpdDim(\''+dim.id+'\',\'label\',this.value)">'+
+        '<div style="display:flex;gap:5px">'+
+          '<button class="nav-btn" style="padding:3px 9px;font-size:10px" onclick="circAddOpt(\''+dim.id+'\')">+ Option</button>'+
+          '<button class="nav-btn nav-btn-danger" style="padding:3px 9px;font-size:10px" onclick="circDelDim(\''+dim.id+'\')">Delete</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="circ-opt-hdr">'+
+        '<span style="width:100px">Value</span>'+
+        '<span style="flex:1;min-width:80px">Display Label</span>'+
+        '<span style="width:64px;text-align:center">Symbol</span>'+
+        '<span style="width:30px"></span>'+
+      '</div>'+
+      (opts||'<div class="circ-empty" style="padding:4px 0">No options yet — click "+ Option"</div>')+
+      '</div>';
+  }).join('');
+}
+function circAddDimension(){
+  if(!currentCircular)return;
+  currentCircular.dimensions.push({id:'cdim_'+Date.now(),label:'Dimension '+(currentCircular.dimensions.length+1),options:[]});
+  renderCircularDimensions();
+}
+function circDelDim(dimId){
+  if(!currentCircular)return;
+  if(!confirm('Delete this dimension? It will be removed from all entries.'))return;
+  currentCircular.dimensions=currentCircular.dimensions.filter(function(d){return d.id!==dimId;});
+  currentCircular.entries.forEach(function(e){if(e.selections)delete e.selections[dimId];});
+  renderCircularDimensions();renderCircularEntries();
+}
+function circUpdDim(dimId,field,val){
+  var dim=(currentCircular.dimensions||[]).find(function(d){return d.id===dimId;});
+  if(dim)dim[field]=val;
+}
+function circAddOpt(dimId){
+  var dim=(currentCircular.dimensions||[]).find(function(d){return d.id===dimId;});
+  if(!dim)return;
+  dim.options.push({value:'',label:'',symbol:''});
+  renderCircularDimensions();
+}
+function circDelOpt(dimId,oi){
+  var dim=(currentCircular.dimensions||[]).find(function(d){return d.id===dimId;});
+  if(!dim)return;
+  dim.options.splice(oi,1);
+  renderCircularDimensions();renderCircularEntries();
+}
+function circUpdOpt(dimId,oi,field,val){
+  var dim=(currentCircular.dimensions||[]).find(function(d){return d.id===dimId;});
+  if(!dim||!dim.options[oi])return;
+  dim.options[oi][field]=val;
+  // refresh entries so chip labels & symbols stay live
+  renderCircularEntries();
+}
+
+/* ── Entries ── */
+function renderCircularEntries(){
+  const c=currentCircular;if(!c)return;
+  const entries=c.entries||[];
+  const dims=c.dimensions||[];
+  const el=document.getElementById('circ-entries');if(!el)return;
+  const cnt=document.getElementById('circ-ent-count');if(cnt)cnt.textContent='('+entries.length+')';
+  if(!entries.length){
+    el.innerHTML='<div class="circ-empty">No entries yet — click "+ Add Entry" or "⚙ Generate All Combos".</div>';
+    return;
+  }
+  el.innerHTML=entries.map(function(entry,ei){
+    var autoSym=circSymbol(entry,dims);
+    var displaySym=entry.symbolOverride||autoSym||'—';
+    var dimRows=dims.map(function(dim){
+      var sel=((entry.selections||{})[dim.id])||[];
+      var chips=(dim.options||[]).map(function(opt){
+        var on=sel.includes(opt.value);
+        return '<button class="circ-val-chip'+(on?' circ-val-on':'')+'" onclick="circToggleVal(\''+entry.id+'\',\''+dim.id+'\',\''+circEscH(opt.value)+'\')">'+circEscH(opt.label||opt.value)+'</button>';
+      }).join('');
+      return '<div class="circ-dim-row">'+
+        '<span class="circ-dim-lbl">'+circEscH(dim.label)+'</span>'+
+        '<div class="circ-val-chips">'+(chips||'<span class="circ-empty" style="padding:2px 0;font-size:10px">No options in dimension</span>')+'</div>'+
+        '</div>';
+    }).join('');
+    return '<div class="circ-entry-card'+(entry.active?'':' circ-entry-off')+'">'+
+      '<div class="circ-entry-hdr">'+
+        '<span class="circ-entry-num">#'+(ei+1)+'</span>'+
+        '<span class="circ-entry-sym" title="Final symbol (used as counter key)">'+circEscH(displaySym)+'</span>'+
+        '<span class="circ-entry-label">'+circEscH(circEntryLabel(entry,dims)||'(empty)')+'</span>'+
+        '<div style="flex:1"></div>'+
+        '<label class="toggle-lbl" style="font-size:10px;white-space:nowrap">'+
+          '<input type="checkbox"'+(entry.active?' checked':'')+' onchange="circUpdEntry(\''+entry.id+'\',\'active\',this.checked)"> Active</label>'+
+        '<button class="nav-btn" style="padding:2px 7px;font-size:10px" onclick="circMoveEntry(\''+entry.id+'\','+ei+',-1)" '+(ei===0?'disabled':'')+'>↑</button>'+
+        '<button class="nav-btn" style="padding:2px 7px;font-size:10px" onclick="circMoveEntry(\''+entry.id+'\','+ei+',1)" '+(ei===entries.length-1?'disabled':'')+'>↓</button>'+
+        '<button class="nav-btn nav-btn-danger" style="padding:2px 7px;font-size:10px" onclick="circDelEntry(\''+entry.id+'\')">×</button>'+
+      '</div>'+
+      '<div class="circ-entry-body">'+
+        dimRows+
+        '<div class="circ-entry-footer">'+
+          '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+            '<div style="display:flex;align-items:center;gap:5px">'+
+              '<span class="flbl">Auto symbol:</span>'+
+              '<span class="circ-sym-auto">'+circEscH(autoSym||'–')+'</span>'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:5px">'+
+              '<span class="flbl">Override:</span>'+
+              '<input class="finput finput-sm" style="width:80px;font-family:monospace;font-weight:900" placeholder="optional" value="'+circEscH(entry.symbolOverride||'')+'" oninput="circUpdEntry(\''+entry.id+'\',\'symbolOverride\',this.value)" title="Override auto-computed symbol">'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:5px">'+
+              '<span class="flbl">Seats:</span>'+
+              '<input class="finput finput-sm" style="width:60px" type="number" min="0" placeholder="0" value="'+(entry.seats||'')+'" oninput="circUpdEntry(\''+entry.id+'\',\'seats\',+(this.value)||0)">'+
+            '</div>'+
+            '<div style="display:flex;align-items:center;gap:5px;flex:1;min-width:140px">'+
+              '<span class="flbl">Note:</span>'+
+              '<input class="finput finput-sm" style="flex:1" placeholder="optional note" value="'+circEscH(entry.note||'')+'" oninput="circUpdEntry(\''+entry.id+'\',\'note\',this.value)">'+
+            '</div>'+
+          '</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+function circAddEntry(){
+  if(!currentCircular)return;
+  currentCircular.entries.push({id:'ent_'+Date.now(),selections:{},symbolOverride:'',seats:0,active:true,note:''});
+  renderCircularEntries();
+}
+function circDelEntry(entId){
+  if(!currentCircular)return;
+  currentCircular.entries=currentCircular.entries.filter(function(e){return e.id!==entId;});
+  renderCircularEntries();
+}
+function circUpdEntry(entId,field,val){
+  var entry=(currentCircular.entries||[]).find(function(e){return e.id===entId;});
+  if(!entry)return;
+  entry[field]=val;
+  if(field==='symbolOverride'||field==='active'){renderCircularEntries();}
+}
+function circMoveEntry(entId,idx,dir){
+  var arr=currentCircular.entries;var ni=idx+dir;
+  if(ni<0||ni>=arr.length)return;
+  var tmp=arr[idx];arr[idx]=arr[ni];arr[ni]=tmp;
+  renderCircularEntries();
+}
+function circToggleVal(entId,dimId,val){
+  var entry=(currentCircular.entries||[]).find(function(e){return e.id===entId;});
+  if(!entry)return;
+  if(!entry.selections)entry.selections={};
+  if(!entry.selections[dimId])entry.selections[dimId]=[];
+  var arr=entry.selections[dimId];
+  var idx=arr.indexOf(val);
+  if(idx>=0)arr.splice(idx,1);else arr.push(val);
+  renderCircularEntries();
+}
+function circGenerateCombinations(){
+  if(!currentCircular)return;
+  var dims=currentCircular.dimensions||[];
+  if(!dims.length){toast('Add dimensions first','warn');return;}
+  var allHaveOpts=dims.every(function(d){return d.options&&d.options.length;});
+  if(!allHaveOpts){toast('Every dimension must have at least one option','warn');return;}
+  // Cartesian product (single value per dimension per combo)
+  var combos=[{}];
+  dims.forEach(function(dim){
+    var next=[];
+    (dim.options||[]).forEach(function(opt){
+      combos.forEach(function(prev){
+        var ns=Object.assign({},prev);ns[dim.id]=[opt.value];next.push(ns);
+      });
+    });
+    combos=next;
+  });
+  var added=0;
+  combos.forEach(function(sel){
+    var entry={id:'ent_'+Date.now()+'x'+(added++),selections:sel,symbolOverride:'',seats:0,active:true,note:''};
+    currentCircular.entries.push(entry);
+  });
+  toast(added+' entries generated','success');
+  renderCircularEntries();
 }
 
 /* ─── Live designer listeners ─────────────────────── */

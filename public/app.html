@@ -383,6 +383,9 @@
         <button class="atab" onclick="showAdminTab('at-counters',this)">
           <i data-lucide="bar-chart-2" class="h-3.5 w-3.5"></i> Counters
         </button>
+        <button class="atab" onclick="showAdminTab('at-circular',this)">
+          <i data-lucide="file-text" class="h-3.5 w-3.5"></i> Circular
+        </button>
       </div>
 
       <!-- Tab: Index Pattern -->
@@ -777,6 +780,52 @@
           </div>
           <p class="text-xs text-slate-400 mb-4">Each row shows how many Index IDs have been assigned for a year+class combination. Reset only if you need to restart numbering.</p>
           <div id="counters-table">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Tab: Circular Builder -->
+      <div id="at-circular" class="atab-panel hidden">
+        <div style="max-width:940px;margin:0 auto;padding:10px 0">
+
+          <!-- Info card -->
+          <div class="circ-card" style="margin-bottom:12px">
+            <div class="circ-card-hdr">Circular Info</div>
+            <div style="display:grid;grid-template-columns:1fr 130px 130px;gap:8px;margin-bottom:8px">
+              <div><label class="flbl">Title</label><input id="circ-title" class="finput" placeholder="Admission Circular 2026"></div>
+              <div><label class="flbl">Session / Year</label><input id="circ-session" class="finput" placeholder="2026"></div>
+              <div><label class="flbl">Published On</label><input id="circ-date" class="finput" type="date"></div>
+            </div>
+            <div style="margin-bottom:8px"><label class="flbl">Description / Notes</label><textarea id="circ-desc" class="finput" rows="2" placeholder="Optional notes visible on the circular…"></textarea></div>
+            <label class="toggle-lbl">
+              <input type="checkbox" id="circ-use-symbol">
+              Use symbol-based serial counter — entries sharing the same symbol will draw from one shared serial sequence
+            </label>
+          </div>
+
+          <!-- Dimensions -->
+          <div class="circ-section-hdr">
+            <span class="sec-lbl">Dimensions <span id="circ-dim-count" style="color:#94a3b8;font-weight:600"></span></span>
+            <button class="nav-btn" onclick="circAddDimension()">+ Add Dimension</button>
+          </div>
+          <div id="circ-dims" style="margin-bottom:12px"></div>
+
+          <!-- Entries -->
+          <div class="circ-section-hdr">
+            <span class="sec-lbl">Circular Entries <span id="circ-ent-count" style="color:#94a3b8;font-weight:600"></span></span>
+            <div style="display:flex;gap:6px">
+              <button class="nav-btn" onclick="circGenerateCombinations()" title="Auto-create one entry per dimension-value combination">⚙ Generate All Combos</button>
+              <button class="nav-btn" onclick="circAddEntry()">+ Add Entry</button>
+            </div>
+          </div>
+          <div id="circ-entries" style="margin-bottom:12px"></div>
+
+          <!-- Actions -->
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="nav-btn nav-btn-primary" onclick="saveCircular()">Save Circular</button>
+            <button class="nav-btn" onclick="loadCircular()">↺ Reload</button>
+            <span id="circ-save-note" class="pp-note" style="margin:0"></span>
+          </div>
+
         </div>
       </div>
 
