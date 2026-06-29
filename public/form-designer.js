@@ -86,7 +86,7 @@ function mkEl(type) {
   };
   switch(type) {
     case 'ld':   return Object.assign(base, {label:'Label', field:'name_english', staticValue:'', labelPos:'left', labelWidth:38});
-    case 'table':return Object.assign(base, {h:14, columns:[{label:'Field 1',field:'name_english'},{label:'Field 2',field:'class'}]});
+    case 'table':return Object.assign(base, {h:14, rowCount:1, dataMode:'data', columns:[{label:'Field 1',field:'name_english'},{label:'Field 2',field:'class'}]});
     case 'lbl':  return Object.assign(base, {h:5, field:'name_english', staticValue:''});
     case 'para': return Object.assign(base, {h:18, content:'Type text here.\nUse {tracking_id} to insert field values.'});
     case 'photo':return Object.assign(base, {w:15, h:20, photoField:'student_photo'});
@@ -237,16 +237,51 @@ function elHTML(el, forPrint, app) {
   /* ── 2. Table ─── */
   if (el.type === 'table') {
     var cols = el.columns || [];
+    var rowCount = Math.max(1, el.rowCount || 1);
+    var dataMode = el.dataMode || 'data'; // 'data' | 'blank' | 'academic' | 'siblings'
     var hdrCss = 'background:'+(s.hdrBg||'#1a2b5c')+';color:'+(s.hdrColor||'#fff')+
       ';font-size:'+(s.hdrFontSize||9)+'pt;font-weight:bold;' + pad +
       'border:' + (s.borderWidth||1) + 'px ' + (s.borderStyle||'solid') + ' ' + (s.borderColor||'#ccc') + ';';
     var cellCss = fnt() + pad + 'border:'+(s.borderWidth||1)+'px '+(s.borderStyle||'solid')+' '+(s.borderColor||'#ccc')+';vertical-align:top;';
-    return '<table style="width:100%;border-collapse:collapse;' + bg + '">' +
-      '<thead><tr>' + cols.map(function(c){return '<th style="'+hdrCss+'">'+( c.label||'')+'</th>';}).join('') + '</tr></thead>' +
-      '<tbody><tr>' + cols.map(function(c){
+    var blankRow = '<tr>' + cols.map(function(){return '<td style="'+cellCss+'">&nbsp;</td>';}).join('') + '</tr>';
+    var dataRows = '';
+
+    if (dataMode === 'blank') {
+      // All rows blank
+      for (var bi=0; bi<rowCount; bi++) dataRows += blankRow;
+    } else if (dataMode === 'academic') {
+      var acadData = (app && app.academic_records) ? app.academic_records : (demo && demo.academic_records ? demo.academic_records : []);
+      var acadCols = ['exam','year','board','roll','result'];
+      for (var ai=0; ai<Math.max(rowCount, acadData.length); ai++) {
+        var arow = acadData[ai] || {};
+        dataRows += '<tr>' + cols.map(function(c,ci){
+          var k = acadCols[ci] || acadCols[0];
+          return '<td style="'+cellCss+'">'+(arow[k]||'')+'</td>';
+        }).join('') + '</tr>';
+      }
+    } else if (dataMode === 'siblings') {
+      var sibData = (app && app.siblings) ? app.siblings : (demo && demo.siblings ? demo.siblings : []);
+      var sibCols = ['name','age','cls','institution'];
+      for (var si=0; si<Math.max(rowCount, sibData.length); si++) {
+        var srow = sibData[si] || {};
+        dataRows += '<tr>' + cols.map(function(c,ci){
+          var k = sibCols[ci] || sibCols[0];
+          return '<td style="'+cellCss+'">'+(srow[k]||'')+'</td>';
+        }).join('') + '</tr>';
+      }
+    } else {
+      // 'data' mode: first row field-bound, extra rows blank
+      var firstRow = '<tr>' + cols.map(function(c){
         var v = c.field === '__static__' ? (c.staticValue||'') : fv(demo, c.field);
         return '<td style="'+cellCss+'">'+v+'</td>';
-      }).join('') + '</tr></tbody>' +
+      }).join('') + '</tr>';
+      dataRows += firstRow;
+      for (var di=1; di<rowCount; di++) dataRows += blankRow;
+    }
+
+    return '<table style="width:100%;border-collapse:collapse;' + bg + '">' +
+      '<thead><tr>' + cols.map(function(c){return '<th style="'+hdrCss+'">'+( c.label||'')+'</th>';}).join('') + '</tr></thead>' +
+      '<tbody>' + dataRows + '</tbody>' +
       '</table>';
   }
 
@@ -513,7 +548,23 @@ function fdRenderProps(el) {
         (c.field==='__static__' ? '<input type="text" class="pp-inp" placeholder="Static value" value="'+escH(c.staticValue||'')+'" oninput="fdColUpd(\''+id+'\','+i+',\'staticValue\',this.value)">' : '') +
         '</div>';
     }).join('');
-    inner = section('Columns') +
+    inner = section('Rows & Data') +
+      '<div class="pp-grid2">' +
+      inp('Row Count', 'rowCount', el.rowCount||1, 'number', 'min="1" max="30"') +
+      sel('Data Mode', 'dataMode', el.dataMode||'data', [
+        ['data',     'Field Values (1st row)'],
+        ['blank',    'All Blank (hand-fill)'],
+        ['academic', 'Academic Records'],
+        ['siblings', 'Siblings Data'],
+      ]) +
+      '</div>' +
+      '<div class="pp-note">'+
+        ((!el.dataMode||el.dataMode==='data') ? 'Row 1 = bound fields. Extra rows print blank.' :
+         el.dataMode==='blank'                ? 'All rows print blank — for manual handwriting.' :
+         el.dataMode==='academic'             ? 'Pulls from Academic Records table in the form.' :
+         'Pulls from Siblings table in the form.') +
+      '</div>' +
+      section('Columns') +
       colsHtml +
       '<button class="pp-add-col" onclick="fdAddCol(\''+id+'\')">+ Add Column</button>' +
       section('Header Style') +
