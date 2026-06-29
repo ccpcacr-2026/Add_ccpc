@@ -1183,6 +1183,10 @@ const DEFAULT_CIRCULAR={
     {id:'cdim_version',  label:'Version',  options:[]},
     {id:'cdim_category', label:'Category', options:[]},
   ],
+  appOptionFields:[
+    {id:'aof_seats', label:'Seats',  type:'number'},
+    {id:'aof_note',  label:'Note',   type:'text'},
+  ],
   entries:[]
 };
 let currentCircular=null;
@@ -1222,8 +1226,10 @@ async function loadCircular(){
   currentCircular=Object.assign({},DEFAULT_CIRCULAR,saved);
   if(!Array.isArray(currentCircular.dimensions))currentCircular.dimensions=DEFAULT_CIRCULAR.dimensions.map(function(d){return Object.assign({},d);});
   if(!Array.isArray(currentCircular.entries))currentCircular.entries=[];
+  if(!Array.isArray(currentCircular.appOptionFields))currentCircular.appOptionFields=DEFAULT_CIRCULAR.appOptionFields.map(function(f){return Object.assign({},f);});
   populateCircularInfo();
   renderCircularDimensions();
+  renderCircOptFields();
   renderCircularEntries();
 }
 function populateCircularInfo(){
@@ -1365,23 +1371,30 @@ function renderCircularEntries(){
       return '<td><div class="circ-val-chips">'+(chips||'<span style="font-size:9px;color:#94a3b8">—</span>')+'</div></td>';
     }).join('');
 
-    // Application Options sub-table
+    // Application Options sub-table (columns driven by appOptionFields)
     var opts=entry.appOptions||[];
-    var optsRows=opts.map(function(opt,oi){
+    var aof=(c.appOptionFields||[]);
+    var aofThs=aof.map(function(f){return '<th>'+circEscH(f.label)+'</th>';}).join('');
+    var optsRows=opts.map(function(opt){
+      var fCells=aof.map(function(f){
+        var fval=opt[f.id]!==undefined?opt[f.id]:'';
+        var inp=f.type==='number'
+          ?'<input class="finput finput-sm" style="width:100%;text-align:center" type="number" min="0" value="'+circEscH(String(fval))+'" placeholder="—" oninput="circUpdSubOpt(\''+entry.id+'\',\''+opt.id+'\',\''+f.id+'\',+(this.value)||\'\')">'
+          :'<input class="finput finput-sm" style="width:100%" type="text" value="'+circEscH(String(fval))+'" placeholder="—" oninput="circUpdSubOpt(\''+entry.id+'\',\''+opt.id+'\',\''+f.id+'\',this.value)">';
+        return '<td>'+inp+'</td>';
+      }).join('');
       return '<tr>'+
-        '<td><input class="finput finput-sm" style="width:100%" value="'+circEscH(opt.label||'')+
-          '" placeholder="Option name" oninput="circUpdSubOpt(\''+entry.id+'\',\''+opt.id+'\',\'label\',this.value)"></td>'+
-        '<td><input class="finput finput-sm" style="width:60px;text-align:center" type="number" min="0" value="'+(opt.seats||'')+
-          '" placeholder="0" oninput="circUpdSubOpt(\''+entry.id+'\',\''+opt.id+'\',\'seats\',+(this.value)||0)"></td>'+
-        '<td><input class="finput finput-sm" style="width:100%" value="'+circEscH(opt.note||'')+
-          '" placeholder="note" oninput="circUpdSubOpt(\''+entry.id+'\',\''+opt.id+'\',\'note\',this.value)"></td>'+
+        '<td><input class="finput finput-sm" style="width:100%" value="'+circEscH(opt.name||'')+
+          '" placeholder="Option name" oninput="circUpdSubOpt(\''+entry.id+'\',\''+opt.id+'\',\'name\',this.value)"></td>'+
+        fCells+
         '<td><button onclick="circDelSubOpt(\''+entry.id+'\',\''+opt.id+'\')" style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:14px;font-weight:900;padding:0 3px">×</button></td>'+
         '</tr>';
     }).join('');
+    var noFields=!aof.length?'<span class="pp-note" style="margin-left:6px">Add fields above to track more details per option</span>':'';
     var subContent='<div style="padding:8px 12px;background:#f8fafc;border-top:1px solid #e2e8f0">'+
-      '<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#6366f1;margin-bottom:6px">Application Options '+(opts.length?'('+opts.length+')':'— none yet')+'</div>'+
+      '<div style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;color:#6366f1;margin-bottom:6px">Application Options '+(opts.length?'('+opts.length+')':'— none yet')+noFields+'</div>'+
       '<table class="circ-sub-table">'+
-        '<thead><tr><th>Option / Quota Name</th><th style="width:70px">Seats</th><th>Note</th><th style="width:28px"></th></tr></thead>'+
+        '<thead><tr><th>Option / Quota Name</th>'+aofThs+'<th style="width:28px"></th></tr></thead>'+
         '<tbody>'+optsRows+'</tbody>'+
       '</table>'+
       '<button class="nav-btn" style="font-size:9px;padding:3px 9px;margin-top:5px" onclick="circAddSubOpt(\''+entry.id+'\')">+ Add Option</button>'+
@@ -1437,7 +1450,9 @@ function circAddSubOpt(entId){
   var entry=(currentCircular.entries||[]).find(function(e){return e.id===entId;});
   if(!entry)return;
   if(!entry.appOptions)entry.appOptions=[];
-  entry.appOptions.push({id:'opt_'+Date.now(),label:'',seats:0,note:''});
+  var newOpt={id:'opt_'+Date.now(),name:''};
+  (currentCircular.appOptionFields||[]).forEach(function(f){newOpt[f.id]='';});
+  entry.appOptions.push(newOpt);
   renderCircularEntries();
 }
 function circDelSubOpt(entId,optId){
@@ -1451,6 +1466,54 @@ function circUpdSubOpt(entId,optId,field,val){
   if(!entry||!entry.appOptions)return;
   var opt=entry.appOptions.find(function(o){return o.id===optId;});
   if(opt)opt[field]=val;
+}
+
+/* ── Application Option Fields config ────────────── */
+function renderCircOptFields(){
+  const c=currentCircular;if(!c)return;
+  const fields=c.appOptionFields||[];
+  const el=document.getElementById('circ-opt-fields');if(!el)return;
+  if(!fields.length){
+    el.innerHTML='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+      '<span class="circ-val-chip circ-val-on" style="cursor:default;opacity:.7">Name (always)</span>'+
+      '<span class="pp-note" style="margin:0">No extra fields — only "Name" column shown. Click "+ Add Field" to add Seats, Note, custom fields, etc.</span>'+
+      '</div>';
+    return;
+  }
+  var chips='<span class="circ-val-chip circ-val-on" style="cursor:default;opacity:.7">Name (always)</span>';
+  chips+=fields.map(function(f){
+    return '<div style="display:inline-flex;align-items:center;gap:2px;background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:2px 8px 2px 6px">'+
+      '<input class="finput finput-sm" style="width:80px;background:transparent;border:none;padding:0;font-size:10px;font-weight:700" value="'+circEscH(f.label)+
+        '" oninput="circUpdOptField(\''+f.id+'\',\'label\',this.value)" title="Field label">'+
+      '<select style="font-size:9px;font-weight:700;background:transparent;border:none;outline:none;cursor:pointer;color:#6366f1" onchange="circUpdOptField(\''+f.id+'\',\'type\',this.value)">'+
+        '<option value="text"'+(f.type==='text'?' selected':'')+'>Text</option>'+
+        '<option value="number"'+(f.type==='number'?' selected':'')+'>Number</option>'+
+      '</select>'+
+      '<button onclick="circDelOptField(\''+f.id+'\')" style="color:#ef4444;background:none;border:none;cursor:pointer;font-size:13px;font-weight:900;padding:0 0 0 3px;line-height:1">×</button>'+
+      '</div>';
+  }).join('');
+  el.innerHTML='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+chips+'</div>';
+}
+function circAddOptField(){
+  if(!currentCircular)return;
+  if(!currentCircular.appOptionFields)currentCircular.appOptionFields=[];
+  const label=prompt('Field name (e.g. "Seats", "Note", "Quota Type"):');
+  if(!label||!label.trim())return;
+  const type=confirm('"'+label.trim()+'" is a number field?\n(OK = Number, Cancel = Text)')?'number':'text';
+  currentCircular.appOptionFields.push({id:'aof_'+Date.now(),label:label.trim(),type:type});
+  renderCircOptFields();
+  renderCircularEntries();
+}
+function circDelOptField(fid){
+  if(!currentCircular||!currentCircular.appOptionFields)return;
+  currentCircular.appOptionFields=currentCircular.appOptionFields.filter(function(f){return f.id!==fid;});
+  renderCircOptFields();
+  renderCircularEntries();
+}
+function circUpdOptField(fid,key,val){
+  if(!currentCircular||!currentCircular.appOptionFields)return;
+  var f=currentCircular.appOptionFields.find(function(f){return f.id===fid;});
+  if(f){f[key]=val;renderCircularEntries();}
 }
 function circAddEntry(){
   if(!currentCircular)return;
