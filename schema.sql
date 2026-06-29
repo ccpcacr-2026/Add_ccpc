@@ -110,9 +110,16 @@ CREATE TABLE IF NOT EXISTS admission_applications (
   guardian_office_address TEXT,
   guardian_photo          TEXT,
 
+  academic_records JSONB DEFAULT '[]',
+  siblings         JSONB DEFAULT '[]',
+
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Run this if table already exists (adds columns to existing rows)
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS academic_records JSONB DEFAULT '[]';
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS siblings         JSONB DEFAULT '[]';
 
 -- RLS
 ALTER TABLE admission_applications ENABLE ROW LEVEL SECURITY;

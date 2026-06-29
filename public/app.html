@@ -149,6 +149,7 @@
         <button class="ftab" onclick="showSection('s-father',this)">Father</button>
         <button class="ftab" onclick="showSection('s-mother',this)">Mother</button>
         <button class="ftab" onclick="showSection('s-guardian',this)">Guardian</button>
+        <button class="ftab" onclick="showSection('s-tables',this)">Tables</button>
       </div>
 
       <!-- App Info -->
@@ -291,6 +292,60 @@
             <input type="hidden" id="f-guardian-photo">
           </div>
         </div>
+      </div>
+
+      <!-- Tables -->
+      <div id="s-tables" class="fsec hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-6">
+
+        <!-- Academic Records -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="sec-lbl">Academic / Educational Records</p>
+            <button type="button" onclick="addAcademicRow()" class="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all">
+              <i data-lucide="plus" class="h-3 w-3"></i> Add Row
+            </button>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="tbl-hdr text-left">Exam Name</th>
+                  <th class="tbl-hdr text-left">Year</th>
+                  <th class="tbl-hdr text-left">Board / Institution</th>
+                  <th class="tbl-hdr text-left">Roll No.</th>
+                  <th class="tbl-hdr text-left">GPA / Result</th>
+                  <th class="w-8"></th>
+                </tr>
+              </thead>
+              <tbody id="academic-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Sibling Info -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="sec-lbl">Information of Siblings</p>
+            <button type="button" onclick="addSiblingRow()" class="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all">
+              <i data-lucide="plus" class="h-3 w-3"></i> Add Row
+            </button>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200">
+                  <th class="tbl-hdr text-left">Name</th>
+                  <th class="tbl-hdr text-left">Age</th>
+                  <th class="tbl-hdr text-left">Class / Standard</th>
+                  <th class="tbl-hdr text-left">Institution</th>
+                  <th class="w-8"></th>
+                </tr>
+              </thead>
+              <tbody id="sibling-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <div class="mt-4 flex justify-end gap-3 flex-wrap">
@@ -513,6 +568,61 @@
                 <label class="toggle-lbl"><input type="checkbox" id="gff-contact"> Contact</label>
                 <label class="toggle-lbl"><input type="checkbox" id="gff-relation"> Relation</label>
                 <label class="toggle-lbl"><input type="checkbox" id="gff-office"> Office Addr.</label>
+              </div>
+            </details>
+
+            <details open class="dgroup">
+              <summary class="dgroup-hdr"><i data-lucide="table" class="h-3.5 w-3.5 shrink-0"></i> Tables</summary>
+              <div class="dgroup-body space-y-4">
+
+                <!-- Academic Records Table -->
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <label class="toggle-lbl font-bold"><input type="checkbox" id="tbl-acad-show"> Academic Records Table</label>
+                  <div class="space-y-1 pl-1">
+                    <label class="flbl">Title</label>
+                    <input type="text" id="tbl-acad-title" class="finput finput-sm" placeholder="Educational Qualifications">
+                    <p class="flbl mt-2">Columns</p>
+                    <div class="fields-grid mt-1">
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-acad-exam"> Exam Name</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-acad-year"> Year</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-acad-board"> Board/Institution</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-acad-roll"> Roll No.</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-acad-result"> GPA / Result</label>
+                    </div>
+                    <p class="flbl mt-2">Custom Column Labels</p>
+                    <div class="grid grid-cols-1 gap-1 mt-1">
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Exam</span><input type="text" id="tbl-acad-lbl-exam" class="finput finput-sm flex-1" placeholder="Exam Name"></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Year</span><input type="text" id="tbl-acad-lbl-year" class="finput finput-sm flex-1" placeholder="Year"></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Board</span><input type="text" id="tbl-acad-lbl-board" class="finput finput-sm flex-1" placeholder="Board / Institution"></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Roll</span><input type="text" id="tbl-acad-lbl-roll" class="finput finput-sm flex-1" placeholder="Roll No."></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Result</span><input type="text" id="tbl-acad-lbl-result" class="finput finput-sm flex-1" placeholder="GPA / Result"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sibling Table -->
+                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <label class="toggle-lbl font-bold"><input type="checkbox" id="tbl-sib-show"> Sibling Information Table</label>
+                  <div class="space-y-1 pl-1">
+                    <label class="flbl">Title</label>
+                    <input type="text" id="tbl-sib-title" class="finput finput-sm" placeholder="Information of Siblings">
+                    <p class="flbl mt-2">Columns</p>
+                    <div class="fields-grid mt-1">
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-sib-name"> Name</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-sib-age"> Age</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-sib-cls"> Class</label>
+                      <label class="toggle-lbl"><input type="checkbox" id="tbl-sib-inst"> Institution</label>
+                    </div>
+                    <p class="flbl mt-2">Custom Column Labels</p>
+                    <div class="grid grid-cols-1 gap-1 mt-1">
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Name</span><input type="text" id="tbl-sib-lbl-name" class="finput finput-sm flex-1" placeholder="Name"></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Age</span><input type="text" id="tbl-sib-lbl-age" class="finput finput-sm flex-1" placeholder="Age"></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Class</span><input type="text" id="tbl-sib-lbl-cls" class="finput finput-sm flex-1" placeholder="Class / Standard"></div>
+                      <div class="flex gap-2 items-center"><span class="text-[10px] text-slate-400 w-20">Institution</span><input type="text" id="tbl-sib-lbl-inst" class="finput finput-sm flex-1" placeholder="Institution"></div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </details>
 

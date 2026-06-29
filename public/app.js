@@ -37,6 +37,20 @@ const DEFAULT_FORM = {
   motherFields:  { name: true, prof: true, desig: true, edu: true, contact: true, nid: true, office: true, income: true },
   guardianFields:{ name: true, prof: true, desig: true, edu: true, contact: true, relation: true, office: true },
   terms: { visible: true, text: 'I hereby declare that all information provided in this application is true and correct to the best of my knowledge. Any false information may result in cancellation of admission.\nI agree to abide by all rules and regulations of Chattogram Cantonment Public College.' },
+  tables: {
+    academic: {
+      visible: true,
+      title: 'Educational Qualifications',
+      columns: { exam: true, year: true, board: true, roll: true, result: true },
+      labels: { exam: 'Exam Name', year: 'Year', board: 'Board / Institution', roll: 'Roll No.', result: 'GPA / Result' },
+    },
+    sibling: {
+      visible: true,
+      title: 'Information of Siblings',
+      columns: { name: true, age: true, cls: true, institution: true },
+      labels: { name: 'Name', age: 'Age', cls: 'Class / Standard', institution: 'Institution' },
+    },
+  },
   footer: 'Chattogram Cantonment Public College — Official Admission Form — Page 1 of 1',
   signatureLabel: "Guardian's Signature & Date",
 };
@@ -80,6 +94,14 @@ const DEMO_APP = {
   guardian_name:'MD. DEMO GUARDIAN', guardian_profession:'Civil Service', guardian_designation:'Executive Officer', guardian_education:'MBA',
   guardian_contact:'01700000003', guardian_relation:'Uncle', guardian_office_address:'Demo Office, Agrabad, Chattogram',
   student_photo:null, father_photo:null, mother_photo:null, guardian_photo:null,
+  academic_records:[
+    {exam:'PSC',year:'2019',board:'Dhaka',roll:'234567',result:'GPA 5.00'},
+    {exam:'JSC',year:'2022',board:'Chattogram',roll:'345678',result:'GPA 4.75'},
+    {exam:'SSC',year:'2024',board:'Chattogram',roll:'456789',result:'GPA 5.00'},
+  ],
+  siblings:[
+    {name:'Demo Sister',age:'14',cls:'Nine',institution:'Chattogram Cantonment Girls School'},
+  ],
 };
 
 /* ─── Utility ─────────────────────────────────────── */
@@ -246,6 +268,39 @@ async function deleteApp(id){
   toast('Deleted','success');allApplications=allApplications.filter(a=>a.id!==id);filterApps();loadStats();
 }
 
+/* ─── Dynamic table rows ─────────────────────────── */
+function addAcademicRow(data={}){
+  const tr=document.createElement('tr');
+  tr.className='border-t border-slate-100 group';
+  tr.innerHTML=`
+    <td class="px-2 py-1"><input data-field="exam" value="${data.exam||''}" class="tbl-input" placeholder="e.g. SSC"></td>
+    <td class="px-2 py-1"><input data-field="year" value="${data.year||''}" class="tbl-input" placeholder="2024"></td>
+    <td class="px-2 py-1"><input data-field="board" value="${data.board||''}" class="tbl-input" placeholder="Dhaka Board"></td>
+    <td class="px-2 py-1"><input data-field="roll" value="${data.roll||''}" class="tbl-input" placeholder="123456"></td>
+    <td class="px-2 py-1"><input data-field="result" value="${data.result||''}" class="tbl-input" placeholder="GPA 5.00"></td>
+    <td class="px-2 py-1 text-center"><button type="button" onclick="this.closest('tr').remove()" class="w-6 h-6 rounded-md text-slate-300 hover:bg-red-50 hover:text-red-500 transition-all text-lg leading-none opacity-0 group-hover:opacity-100">×</button></td>`;
+  document.getElementById('academic-tbody').appendChild(tr);
+}
+function addSiblingRow(data={}){
+  const tr=document.createElement('tr');
+  tr.className='border-t border-slate-100 group';
+  tr.innerHTML=`
+    <td class="px-2 py-1"><input data-field="name" value="${data.name||''}" class="tbl-input" placeholder="Full name"></td>
+    <td class="px-2 py-1"><input data-field="age" value="${data.age||''}" class="tbl-input" placeholder="Age"></td>
+    <td class="px-2 py-1"><input data-field="cls" value="${data.cls||''}" class="tbl-input" placeholder="e.g. Five"></td>
+    <td class="px-2 py-1"><input data-field="institution" value="${data.institution||''}" class="tbl-input" placeholder="School name"></td>
+    <td class="px-2 py-1 text-center"><button type="button" onclick="this.closest('tr').remove()" class="w-6 h-6 rounded-md text-slate-300 hover:bg-red-50 hover:text-red-500 transition-all text-lg leading-none opacity-0 group-hover:opacity-100">×</button></td>`;
+  document.getElementById('sibling-tbody').appendChild(tr);
+}
+function collectTableRows(tbodyId,fields){
+  const rows=[];
+  document.querySelectorAll(`#${tbodyId} tr`).forEach(tr=>{
+    const row={};fields.forEach(f=>{row[f]=tr.querySelector(`[data-field="${f}"]`)?.value?.trim()||null;});
+    if(Object.values(row).some(v=>v))rows.push(row);
+  });
+  return rows;
+}
+
 /* ─── Form ───────────────────────────────────────── */
 const FORM_FIELDS=[
   'f-session','f-class','f-category','f-version','f-quota','f-status',
@@ -265,6 +320,8 @@ function clearForm(){
   });
   setV('f-session','2026');setV('f-class','Nursery');setV('f-category','Army');
   setV('f-version','Bangla');setV('f-quota','No');setV('f-status','Pending');setV('f-nationality','Bangladeshi');
+  document.getElementById('academic-tbody').innerHTML='';addAcademicRow();addAcademicRow();addAcademicRow();
+  document.getElementById('sibling-tbody').innerHTML='';
   if(typeof lucide!=='undefined')lucide.createIcons();
 }
 function loadNewApplication(){
@@ -308,6 +365,15 @@ async function loadForm(id){
     const el=document.getElementById(`${role}-photo-preview`);
     if(el)el.innerHTML=`<img src="${ph}" class="w-full h-full object-cover">`;
   });
+  // Academic records table
+  document.getElementById('academic-tbody').innerHTML='';
+  const acadRows=Array.isArray(a.academic_records)?a.academic_records:[];
+  if(acadRows.length)acadRows.forEach(r=>addAcademicRow(r));
+  else{addAcademicRow();addAcademicRow();addAcademicRow();}
+  // Sibling table
+  document.getElementById('sibling-tbody').innerHTML='';
+  const sibRows=Array.isArray(a.siblings)?a.siblings:[];
+  sibRows.forEach(r=>addSiblingRow(r));
   document.querySelector('.ftab').click();
 }
 function collectForm(){
@@ -336,6 +402,8 @@ function collectForm(){
     guardian_contact:v('f-guardian-contact')||null,guardian_relation:v('f-guardian-relation')||null,
     guardian_office_address:v('f-guardian-office')||null,
     guardian_photo:document.getElementById('f-guardian-photo')?.value||null,
+    academic_records:collectTableRows('academic-tbody',['exam','year','board','roll','result']),
+    siblings:collectTableRows('sibling-tbody',['name','age','cls','institution']),
   };
 }
 async function saveApplication(){
@@ -400,6 +468,61 @@ async function printAdmitById(id){
 function openPrintTab(html){
   const w=window.open('','_blank','width=900,height=1100');
   w.document.write(html);w.document.close();
+}
+
+/* ─── Tables HTML Generator ──────────────────────── */
+function generateTablesHtml(a,ts,sh){
+  let html='';
+  const secHdrStyle=`background:${sh?.bgColor||'#e8e8e8'};color:${sh?.textColor||'#1a2b5c'}`;
+
+  // Academic records
+  const at=ts?.academic||DEFAULT_FORM.tables.academic;
+  if(at.visible!==false){
+    const rows=Array.isArray(a.academic_records)?a.academic_records.filter(r=>r&&Object.values(r).some(v=>v)):[];
+    if(rows.length){
+      const ac=at.columns||{};const al=at.labels||DEFAULT_FORM.tables.academic.labels;
+      html+=`<div class="pr-section"><div class="pr-sec-hdr" style="${secHdrStyle}">${at.title||'Educational Qualifications'}</div>
+      <div class="pr-body"><table class="pr-custom-table"><thead><tr>
+        ${ac.exam!==false?`<th>${al.exam||'Exam Name'}</th>`:''}
+        ${ac.year!==false?`<th>${al.year||'Year'}</th>`:''}
+        ${ac.board!==false?`<th>${al.board||'Board / Institution'}</th>`:''}
+        ${ac.roll!==false?`<th>${al.roll||'Roll No.'}</th>`:''}
+        ${ac.result!==false?`<th>${al.result||'GPA / Result'}</th>`:''}
+      </tr></thead><tbody>
+        ${rows.map(r=>`<tr>
+          ${ac.exam!==false?`<td>${r.exam||''}</td>`:''}
+          ${ac.year!==false?`<td>${r.year||''}</td>`:''}
+          ${ac.board!==false?`<td>${r.board||''}</td>`:''}
+          ${ac.roll!==false?`<td>${r.roll||''}</td>`:''}
+          ${ac.result!==false?`<td>${r.result||''}</td>`:''}
+        </tr>`).join('')}
+      </tbody></table></div></div>`;
+    }
+  }
+
+  // Sibling information
+  const st=ts?.sibling||DEFAULT_FORM.tables.sibling;
+  if(st.visible!==false){
+    const rows=Array.isArray(a.siblings)?a.siblings.filter(r=>r&&Object.values(r).some(v=>v)):[];
+    if(rows.length){
+      const sc=st.columns||{};const sl=st.labels||DEFAULT_FORM.tables.sibling.labels;
+      html+=`<div class="pr-section"><div class="pr-sec-hdr" style="${secHdrStyle}">${st.title||'Information of Siblings'}</div>
+      <div class="pr-body"><table class="pr-custom-table"><thead><tr>
+        ${sc.name!==false?`<th>${sl.name||'Name'}</th>`:''}
+        ${sc.age!==false?`<th>${sl.age||'Age'}</th>`:''}
+        ${sc.cls!==false?`<th>${sl.cls||'Class / Standard'}</th>`:''}
+        ${sc.institution!==false?`<th>${sl.institution||'Institution'}</th>`:''}
+      </tr></thead><tbody>
+        ${rows.map(r=>`<tr>
+          ${sc.name!==false?`<td>${r.name||''}</td>`:''}
+          ${sc.age!==false?`<td>${r.age||''}</td>`:''}
+          ${sc.cls!==false?`<td>${r.cls||''}</td>`:''}
+          ${sc.institution!==false?`<td>${r.institution||''}</td>`:''}
+        </tr>`).join('')}
+      </tbody></table></div></div>`;
+    }
+  }
+  return html;
 }
 
 /* ─── Form HTML Generator ────────────────────────── */
@@ -539,6 +662,10 @@ body{font-family:Arial,sans-serif;font-size:10pt;color:#111;background:#fff}
 .pr-sign-line{border-top:1px solid #333;width:160px;margin-bottom:3px}
 .pr-sign-label{font-size:7.5pt;color:#555;text-align:center}
 .pr-footer{text-align:center;font-size:7pt;color:#aaa;margin-top:10px;padding-top:4px;border-top:.5px solid #ddd}
+.pr-custom-table{width:100%;border-collapse:collapse;font-size:8.5pt}
+.pr-custom-table th{background:${sh.bgColor};color:${sh.textColor};padding:4px 7px;text-align:left;font-size:7.5pt;font-weight:900;letter-spacing:.4px;border:1px solid rgba(0,0,0,.12)}
+.pr-custom-table td{padding:4px 7px;border:1px solid #ddd;vertical-align:top}
+.pr-custom-table tr:nth-child(even) td{background:#f9f9f9}
 ${isPreview?'@media screen{body{background:#f5f5f5;padding:10px}.pr-page{background:#fff;padding:12mm;max-width:100%;box-shadow:0 2px 12px rgba(0,0,0,.1)}}':'@media screen{body{background:#e0e0e0}.pr-page{max-width:210mm;margin:10mm auto;background:#fff;padding:12mm;box-shadow:0 4px 20px rgba(0,0,0,.2)}}'}
 </style></head>
 <body><div class="pr-page">
@@ -552,7 +679,7 @@ ${isPreview?'@media screen{body{background:#f5f5f5;padding:10px}.pr-page{backgro
   <div style="width:60px;text-align:center;font-size:6pt;color:#aaa"><div style="width:50px;height:50px;border:1px solid #ddd;margin:0 auto 2px;display:flex;align-items:center;justify-content:center;font-size:8pt;font-weight:900;color:${ib.bgColor}">${a.tracking_id||''}</div>Tracking ID</div>
 </div>
 ${indexFields.length?`<div class="pr-index-bar">${indexFields.map(f=>`<div class="pr-index-cell"><span class="pr-index-label">${f.l}</span>${f.v}</div>`).join('')}</div>`:''}
-${studentHtml}${fatherHtml}${motherHtml}${guardianHtml}
+${studentHtml}${fatherHtml}${motherHtml}${guardianHtml}${generateTablesHtml(a,fs.tables||DEFAULT_FORM.tables,sh)}
 ${termsHtml}
 <div class="pr-sign-area"><div class="pr-sign-box"><div style="height:28px"></div><div class="pr-sign-line"></div><div class="pr-sign-label">${fs.signatureLabel||DEFAULT_FORM.signatureLabel}</div></div></div>
 <div class="pr-footer">${fs.footer||DEFAULT_FORM.footer}</div>
@@ -749,6 +876,24 @@ function populateFormDesigner(s){
   const tr=s.terms||DEFAULT_FORM.terms;
   setChk('fd-show-terms',tr.visible!==false);setV('fd-terms-text',tr.text||DEFAULT_FORM.terms.text);
   setV('fd-footer',s.footer||DEFAULT_FORM.footer);setV('fd-sign-label',s.signatureLabel||DEFAULT_FORM.signatureLabel);
+  // Tables
+  const tbl=s.tables||DEFAULT_FORM.tables;
+  const at=tbl.academic||DEFAULT_FORM.tables.academic;
+  setChk('tbl-acad-show',at.visible!==false);setV('tbl-acad-title',at.title||'Educational Qualifications');
+  const ac=at.columns||{};
+  setChk('tbl-acad-exam',ac.exam!==false);setChk('tbl-acad-year',ac.year!==false);
+  setChk('tbl-acad-board',ac.board!==false);setChk('tbl-acad-roll',ac.roll!==false);setChk('tbl-acad-result',ac.result!==false);
+  const al=at.labels||DEFAULT_FORM.tables.academic.labels;
+  setV('tbl-acad-lbl-exam',al.exam||'');setV('tbl-acad-lbl-year',al.year||'');
+  setV('tbl-acad-lbl-board',al.board||'');setV('tbl-acad-lbl-roll',al.roll||'');setV('tbl-acad-lbl-result',al.result||'');
+  const sib=tbl.sibling||DEFAULT_FORM.tables.sibling;
+  setChk('tbl-sib-show',sib.visible!==false);setV('tbl-sib-title',sib.title||'Information of Siblings');
+  const sc=sib.columns||{};
+  setChk('tbl-sib-name',sc.name!==false);setChk('tbl-sib-age',sc.age!==false);
+  setChk('tbl-sib-cls',sc.cls!==false);setChk('tbl-sib-inst',sc.institution!==false);
+  const sl=sib.labels||DEFAULT_FORM.tables.sibling.labels;
+  setV('tbl-sib-lbl-name',sl.name||'');setV('tbl-sib-lbl-age',sl.age||'');
+  setV('tbl-sib-lbl-cls',sl.cls||'');setV('tbl-sib-lbl-inst',sl.institution||'');
 }
 function collectFormDesignSettings(){
   return{
@@ -767,6 +912,20 @@ function collectFormDesignSettings(){
     guardianFields:{name:chk('gff-name'),prof:chk('gff-prof'),desig:chk('gff-desig'),edu:chk('gff-edu'),contact:chk('gff-contact'),relation:chk('gff-relation'),office:chk('gff-office')},
     terms:{visible:chk('fd-show-terms'),text:document.getElementById('fd-terms-text')?.value||DEFAULT_FORM.terms.text},
     footer:v('fd-footer'),signatureLabel:v('fd-sign-label'),
+    tables:{
+      academic:{
+        visible:chk('tbl-acad-show'),
+        title:v('tbl-acad-title')||'Educational Qualifications',
+        columns:{exam:chk('tbl-acad-exam'),year:chk('tbl-acad-year'),board:chk('tbl-acad-board'),roll:chk('tbl-acad-roll'),result:chk('tbl-acad-result')},
+        labels:{exam:v('tbl-acad-lbl-exam')||'Exam Name',year:v('tbl-acad-lbl-year')||'Year',board:v('tbl-acad-lbl-board')||'Board / Institution',roll:v('tbl-acad-lbl-roll')||'Roll No.',result:v('tbl-acad-lbl-result')||'GPA / Result'},
+      },
+      sibling:{
+        visible:chk('tbl-sib-show'),
+        title:v('tbl-sib-title')||'Information of Siblings',
+        columns:{name:chk('tbl-sib-name'),age:chk('tbl-sib-age'),cls:chk('tbl-sib-cls'),institution:chk('tbl-sib-inst')},
+        labels:{name:v('tbl-sib-lbl-name')||'Name',age:v('tbl-sib-lbl-age')||'Age',cls:v('tbl-sib-lbl-cls')||'Class / Standard',institution:v('tbl-sib-lbl-inst')||'Institution'},
+      },
+    },
   };
 }
 function updateFormPreview(){
