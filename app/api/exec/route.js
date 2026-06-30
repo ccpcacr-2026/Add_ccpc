@@ -12,6 +12,8 @@ async function sb(path, method = 'GET', body = null) {
       Authorization: `Bearer ${SB_KEY}`,
       'Content-Type': 'application/json',
       Prefer: method === 'POST' ? 'return=representation' : 'return=minimal',
+      'Accept-Profile': 'admission',
+      'Content-Profile': 'admission',
     },
     ...(body !== null ? { body: JSON.stringify(body) } : {}),
   });
@@ -27,6 +29,8 @@ async function sbRpc(fn, params = {}) {
       apikey: SB_KEY,
       Authorization: `Bearer ${SB_KEY}`,
       'Content-Type': 'application/json',
+      'Accept-Profile': 'admission',
+      'Content-Profile': 'admission',
     },
     body: JSON.stringify(params),
   });
