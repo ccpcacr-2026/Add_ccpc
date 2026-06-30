@@ -449,8 +449,89 @@ async function ensureFormLayout(){
   const tpls=tplData.templates||[];
   const active=tplData.activeId;
   const tpl=(active&&tpls.find(t=>t.id===active))||tpls[0]||null;
-  if(tpl){formLayout=tpl.elements||[];return;}
-  formLayout=(s.form_layout&&s.form_layout.elements)||[];
+  if(tpl){formLayout=(tpl.settings&&tpl.settings.elements)||tpl.elements||[];return;}
+  formLayout=(s.form_settings&&s.form_settings.elements)||(s.form_layout&&s.form_layout.elements)||[];
+}
+
+/* ── Form template management ── */
+var formTemplates=[], formActiveTplId=null;
+async function loadFormTemplates(){
+  const r=await api('getSettings',{});
+  const s=r.settings||{};
+  const tplData=s.form_templates||{};
+  formTemplates=tplData.templates||[];
+  formActiveTplId=tplData.activeId||null;
+  // migrate legacy: if no templates but form_settings has elements, wrap it
+  if(!formTemplates.length&&s.form_settings&&s.form_settings.elements&&s.form_settings.elements.length){
+    const migId='tpl_migrated';
+    formTemplates=[{id:migId,name:'Default',settings:{elements:s.form_settings.elements},createdAt:'',updatedAt:''}];
+    formActiveTplId=migId;
+  }
+  renderFormTplBar();
+  const active=formActiveTplId&&formTemplates.find(function(t){return t.id===formActiveTplId;});
+  if(active){
+    formLayout=(active.settings&&active.settings.elements)||active.elements||[];
+  } else if(formTemplates.length){
+    formLayout=(formTemplates[0].settings&&formTemplates[0].settings.elements)||formTemplates[0].elements||[];
+  }
+  initCanvas();
+  if(typeof fdZoomFit==='function')fdZoomFit();
+}
+function renderFormTplBar(){
+  const bar=document.getElementById('fd-tpl-bar');if(!bar)return;
+  if(!formTemplates.length){bar.innerHTML='<span class="pp-note" style="margin:0">No templates saved yet.</span>';return;}
+  const sel='<select onchange="formSwitchTpl(this.value)" class="finput finput-sm" style="min-width:160px">'+
+    formTemplates.map(function(t){return '<option value="'+t.id+'"'+(t.id===formActiveTplId?' selected':'')+'>'+escH(t.name)+'</option>';}).join('')+
+    '</select>';
+  bar.innerHTML=sel+
+    ' <button class="nav-btn" onclick="formSaveTpl()">Save</button>'+
+    ' <button class="nav-btn" onclick="formSaveAsTpl()">Save As</button>'+
+    ' <button class="nav-btn" onclick="formRenameTpl()">Rename</button>'+
+    ' <button class="nav-btn nav-btn-danger" onclick="formDeleteTpl()">Delete</button>'+
+    ' <button class="nav-btn" onclick="formNewTpl()">+ New</button>';
+}
+function formSwitchTpl(id){
+  formActiveTplId=id;
+  const tpl=formTemplates.find(function(t){return t.id===id;});
+  if(!tpl)return;
+  formLayout=(tpl.settings&&tpl.settings.elements)||tpl.elements||[];
+  if(typeof fdRender==='function')fdRender();
+  if(typeof fdZoomFit==='function')fdZoomFit();
+}
+async function saveFormTplsDB(){
+  return api('saveSettings',{key:'form_templates',value:{templates:formTemplates,activeId:formActiveTplId}});
+}
+async function formSaveTpl(){
+  const tpl=formTemplates.find(function(t){return t.id===formActiveTplId;});
+  if(!tpl){toast('No active template','warn');return;}
+  tpl.settings={elements:JSON.parse(JSON.stringify(formLayout))};
+  tpl.updatedAt=new Date().toISOString();
+  await saveFormTplsDB();toast('Saved: '+tpl.name,'ok');
+}
+async function formSaveAsTpl(){
+  const name=prompt('New template name:');if(!name||!name.trim())return;
+  const id='tpl_'+Date.now();
+  formTemplates.push({id,name:name.trim(),settings:{elements:JSON.parse(JSON.stringify(formLayout))},createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  formActiveTplId=id;
+  await saveFormTplsDB();renderFormTplBar();toast('Saved as: '+name.trim(),'ok');
+}
+async function formRenameTpl(){
+  const tpl=formTemplates.find(function(t){return t.id===formActiveTplId;});if(!tpl)return;
+  const name=prompt('Rename template:',tpl.name);if(!name||!name.trim())return;
+  tpl.name=name.trim();tpl.updatedAt=new Date().toISOString();
+  await saveFormTplsDB();renderFormTplBar();toast('Renamed','ok');
+}
+async function formDeleteTpl(){
+  if(formTemplates.length<=1){toast('Cannot delete the only template','warn');return;}
+  const tpl=formTemplates.find(function(t){return t.id===formActiveTplId;});if(!tpl)return;
+  if(!confirm('Delete template "'+tpl.name+'"?'))return;
+  formTemplates=formTemplates.filter(function(t){return t.id!==formActiveTplId;});
+  formActiveTplId=formTemplates[0].id;
+  await saveFormTplsDB();renderFormTplBar();formSwitchTpl(formActiveTplId);toast('Deleted','ok');
+}
+function formNewTpl(){
+  formLayout=[];if(typeof fdRender==='function')fdRender();
+  toast('Blank canvas — add elements then Save As','info');
 }
 async function ensureAdmitTpl(){
   if(currentAdmitSettings)return;
