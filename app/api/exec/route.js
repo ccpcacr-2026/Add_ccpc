@@ -1,8 +1,49 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 
 const SB_URL  = process.env.SUPABASE_URL;
 const SB_KEY  = process.env.SUPABASE_SERVICE_KEY;
 const ADMIN_PASS = process.env.ADMIN_PASSWORD || 'ccpc2026';
+
+// ── Role-based admin sessions ─────────────────────────────────────────────────
+// Besides the master ADMIN_PASSWORD, staff who hold the 'Admission Admin' role
+// in the teachers portal (teacher.app_users, comma-separated role tokens) can
+// sign in with their own user id + password. Their session is a signed HMAC
+// token so requests after login don't re-hit the teacher schema.
+const SESSION_SECRET = process.env.APPLICANT_SESSION_SECRET || SB_KEY || 'dev-secret';
+const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
+
+function b64url(buf) { return Buffer.from(buf).toString('base64url'); }
+function signAdminSession(data) {
+  const payload = b64url(JSON.stringify(data));
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update('admadm.' + payload).digest('base64url');
+  return 'aa1.' + payload + '.' + sig;
+}
+function verifyAdminSession(token) {
+  if (typeof token !== 'string' || !token.startsWith('aa1.')) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const expect = crypto.createHmac('sha256', SESSION_SECRET).update('admadm.' + parts[1]).digest('base64url');
+  const a = Buffer.from(parts[2]), b = Buffer.from(expect);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  let data; try { data = JSON.parse(Buffer.from(parts[1], 'base64url').toString()); } catch { return null; }
+  if (!data || !data.exp || Date.now() > data.exp) return null;
+  return data;
+}
+
+// Read-only lookup against the teachers portal's schema (login only)
+async function sbTeacher(path) {
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    headers: {
+      apikey: SB_KEY,
+      Authorization: `Bearer ${SB_KEY}`,
+      'Accept-Profile': 'teacher',
+    },
+  });
+  const text = await res.text();
+  if (!res.ok) return { error: text };
+  return text ? JSON.parse(text) : null;
+}
 
 async function sb(path, method = 'GET', body = null) {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
@@ -89,11 +130,31 @@ export async function POST(req) {
   const { action, payload = {}, token } = body;
 
   // ── Login ────────────────────────────────────────────────────────────────
+  // Two ways in: master password (full access, as before), or teachers-portal
+  // credentials for a user holding the 'Admission Admin' role.
   if (action === 'login') {
-    if (payload.password === ADMIN_PASS) return NextResponse.json({ token: ADMIN_PASS });
-    return NextResponse.json({ error: 'Invalid password' });
+    const userId = String(payload.userId || '').trim();
+    if (!userId) {
+      if (payload.password === ADMIN_PASS) return NextResponse.json({ token: ADMIN_PASS, who: 'Master Admin' });
+      return NextResponse.json({ error: 'Invalid password' });
+    }
+    const clean = encodeURIComponent(userId);
+    const rows = await sbTeacher(`app_users?or=(user_id.eq.${clean},email.eq.${clean})&select=user_id,email,password,role`);
+    if (!Array.isArray(rows) || !rows.length) return NextResponse.json({ error: 'User not found' });
+    const user = rows[0];
+    if (String(user.password).trim() !== String(payload.password || '').trim()) {
+      return NextResponse.json({ error: 'Invalid password' });
+    }
+    const roles = String(user.role || '').split(',').map(r => r.trim()).filter(Boolean);
+    if (!roles.includes('Admission Admin')) {
+      return NextResponse.json({ error: 'This account does not have the Admission Admin role' });
+    }
+    const sessionToken = signAdminSession({ uid: user.user_id, exp: Date.now() + ADMIN_SESSION_TTL_MS });
+    return NextResponse.json({ token: sessionToken, who: user.user_id, role: 'Admission Admin' });
   }
-  if (token !== ADMIN_PASS) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const isMaster = token === ADMIN_PASS;
+  const roleSession = isMaster ? null : verifyAdminSession(token);
+  if (!isMaster && !roleSession) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // ── List Applications ────────────────────────────────────────────────────
   if (action === 'listApplications') {

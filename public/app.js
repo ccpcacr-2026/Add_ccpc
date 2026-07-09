@@ -147,6 +147,7 @@ document.getElementById('confirmOkBtn').onclick=()=>closeConfirm(true);
 /* ─── API ────────────────────────────────────────── */
 async function api(action,payload={}){
   const r=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload,token:AUTH_TOKEN})});
+  if(r.status===401){logout();toast('Session expired — sign in again','warn');return {error:'Unauthorized'};}
   return r.json();
 }
 
@@ -154,15 +155,36 @@ async function api(action,payload={}){
 document.getElementById('loginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   setLoading(true);
-  const r=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',payload:{password:document.getElementById('loginPass').value}})});
+  const userId=(document.getElementById('loginUser')||{value:''}).value.trim();
+  const r=await fetch('/api/exec',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',payload:{password:document.getElementById('loginPass').value,userId}})});
   const d=await r.json();
   setLoading(false);
-  if(d.token){AUTH_TOKEN=d.token;sessionStorage.setItem('adm_tk',AUTH_TOKEN);document.getElementById('loginError').classList.add('hidden');enterApp();}
-  else document.getElementById('loginError').classList.remove('hidden');
+  if(d.token){
+    AUTH_TOKEN=d.token;sessionStorage.setItem('adm_tk',AUTH_TOKEN);
+    sessionStorage.setItem('adm_who',d.who||'');sessionStorage.setItem('adm_role',d.role||'Master');
+    document.getElementById('loginError').classList.add('hidden');enterApp();
+  }else{
+    const errEl=document.getElementById('loginError');
+    errEl.textContent=d.error||'Invalid password';
+    errEl.classList.remove('hidden');
+  }
 });
-function logout(){AUTH_TOKEN=null;sessionStorage.removeItem('adm_tk');hideEl('app-screen');showEl('login-screen');document.getElementById('loginPass').value='';}
+function logout(){
+  AUTH_TOKEN=null;
+  ['adm_tk','adm_who','adm_role'].forEach(k=>sessionStorage.removeItem(k));
+  hideEl('app-screen');showEl('login-screen');
+  document.getElementById('loginPass').value='';
+  const u=document.getElementById('loginUser');if(u)u.value='';
+}
 function enterApp(){
   const as=document.getElementById('app-screen');as.classList.remove('hidden');as.classList.add('flex');
+  const badge=document.getElementById('who-badge');
+  if(badge){
+    const who=sessionStorage.getItem('adm_who')||'';
+    const role=sessionStorage.getItem('adm_role')||'';
+    badge.textContent=who?(who+(role&&role!=='Master'?' · '+role:'')):'';
+    badge.style.display=who?'':'none'; // inline style: 'hidden' class loses to sm:inline-flex at desktop widths
+  }
   hideEl('login-screen');loadDashboard();
 }
 window.addEventListener('DOMContentLoaded',()=>{
