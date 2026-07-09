@@ -45,7 +45,7 @@ async function sbRpc(fn, params = {}) {
 
 // Index-ID pattern builder — identical to the admin side, so both channels
 // produce numbers in the same scheme.
-function buildIndexId(settings, session, cls, counter) {
+function buildIndexId(settings, session, cls, cat, counter) {
   const pattern    = settings.pattern || '{YY}{CLASS}{SEQ4}';
   const classCodes = settings.classCodes || {};
   const catCodes   = settings.categoryCodes || {};
@@ -54,7 +54,7 @@ function buildIndexId(settings, session, cls, counter) {
     .replace('{YYYY}', yr)
     .replace('{YY}', yr.slice(-2))
     .replace('{CLASS}', classCodes[cls] || '')
-    .replace('{CAT}', catCodes[cls] || 'X')
+    .replace('{CAT}', catCodes[cat] || 'X')
     .replace('{SEQ5}', String(counter || 1).padStart(5, '0'))
     .replace('{SEQ4}', String(counter || 1).padStart(4, '0'))
     .replace('{SEQ3}', String(counter || 1).padStart(3, '0'));
@@ -293,7 +293,7 @@ export async function POST(req) {
       const row = {
         ...pick,
         tracking_id: trackingId,
-        index_id: buildIndexId(idxSettings, pick.session, pick.class, counter),
+        index_id: buildIndexId(idxSettings, pick.session, pick.class, pick.category, counter),
         applicant_email: session.email,
         source: 'applicant',
         status: 'Pending',
@@ -443,7 +443,7 @@ export async function POST(req) {
       if (!trackingId) { lastErr = 'Could not generate a tracking number.'; continue; }
       const counter = await sbRpc('increment_index_counter', { p_year: year, p_class: counterKey });
       if (counter == null) { lastErr = 'Could not generate an index number.'; continue; }
-      const row = { ...data, tracking_id: trackingId, index_id: buildIndexId(indexSettings, data.session, data.class, counter) };
+      const row = { ...data, tracking_id: trackingId, index_id: buildIndexId(indexSettings, data.session, data.class, data.category, counter) };
       const res = await sb('admission_applications', 'POST', row);
       if (res && res.error) {
         // 23505 = unique_violation → a number clashed; loop to redraw.

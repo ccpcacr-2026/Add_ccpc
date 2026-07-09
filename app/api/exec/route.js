@@ -107,7 +107,7 @@ function findCircularEntry(appData, circ) {
   });
 }
 
-function buildIndexId(settings, session, cls, counter) {
+function buildIndexId(settings, session, cls, cat, counter) {
   const pattern     = settings.pattern || '{YY}{CLASS}{SEQ4}';
   const classCodes  = settings.classCodes  || {};
   const catCodes    = settings.categoryCodes || {};
@@ -118,7 +118,7 @@ function buildIndexId(settings, session, cls, counter) {
     .replace('{YYYY}', yr)
     .replace('{YY}',   yr.slice(-2))
     .replace('{CLASS}',classCode)
-    .replace('{CAT}',  catCodes[cls] || 'X')
+    .replace('{CAT}',  catCodes[cat] || 'X')
     .replace('{SEQ5}', String(seq).padStart(5,'0'))
     .replace('{SEQ4}', String(seq).padStart(4,'0'))
     .replace('{SEQ3}', String(seq).padStart(3,'0'));
@@ -199,7 +199,7 @@ export async function POST(req) {
         p_year:  String(data.session || new Date().getFullYear()),
         p_class: counterKey,
       });
-      data.index_id    = buildIndexId(indexSettings, data.session, data.class, counter);
+      data.index_id    = buildIndexId(indexSettings, data.session, data.class, data.category, counter);
       data.created_at  = new Date().toISOString();
       data.status      = data.status || 'Pending';
 
@@ -271,8 +271,8 @@ export async function POST(req) {
 
   // ── Preview Index ID ─────────────────────────────────────────────────────
   if (action === 'previewIndexId') {
-    const { settings, session, cls, counter = 1 } = payload;
-    return NextResponse.json({ preview: buildIndexId(settings, session, cls, counter) });
+    const { settings, session, cls, cat, counter = 1 } = payload;
+    return NextResponse.json({ preview: buildIndexId(settings, session, cls, cat, counter) });
   }
 
   // ── Reset Counter ────────────────────────────────────────────────────────
