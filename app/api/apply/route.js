@@ -96,10 +96,19 @@ const ALLOWED_FIELDS = new Set([
   'birth_reg_no', 'gender', 'emergency_contact', 'height', 'last_class',
   'last_version', 'last_institute', 'present_address', 'permanent_address',
   'co_curricular', 'student_photo',
-  'father_name', 'father_profession', 'father_contact', 'father_nid',
-  'mother_name', 'mother_profession', 'mother_contact', 'mother_nid',
-  'guardian_name', 'guardian_contact', 'guardian_relation',
+  'father_name', 'father_profession', 'father_designation', 'father_education',
+  'father_contact', 'father_nid', 'father_office_address', 'father_yearly_income', 'father_photo',
+  'mother_name', 'mother_profession', 'mother_designation', 'mother_education',
+  'mother_contact', 'mother_nid', 'mother_office_address', 'mother_yearly_income', 'mother_photo',
+  'guardian_name', 'guardian_profession', 'guardian_designation', 'guardian_education',
+  'guardian_contact', 'guardian_nid', 'guardian_relation', 'guardian_office_address', 'guardian_photo',
 ]);
+
+// Which bucket folder each photo field lands in (bucket "applicants" has
+// folders father / mother / applicants; student + guardian go under applicants).
+const PHOTO_FOLDER = {
+  student_photo: 'applicants', father_photo: 'father', mother_photo: 'mother', guardian_photo: 'applicants',
+};
 
 export async function POST(req) {
   let body;
@@ -168,6 +177,37 @@ export async function POST(req) {
 
   if (action === 'logout') {
     return NextResponse.json({ ok: true }, { headers: { 'Set-Cookie': 'applicant_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax' } });
+  }
+
+  // ── Photo upload → Supabase Storage bucket "applicants" ─────────────────────
+  // Client sends a base64 image (already resized/compressed to ≤130 KB). We
+  // upload it server-side with the service key and return the public URL to
+  // store on the application row. Enforces the field→folder map, size, and
+  // image mime — matching the bucket's own limits (public, image/*, 130 KB).
+  if (action === 'uploadPhoto') {
+    const session = readSession(req);
+    if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+    const { field, dataUrl } = payload;
+    const folder = PHOTO_FOLDER[field];
+    if (!folder) return NextResponse.json({ error: 'Unknown photo field.' }, { status: 400 });
+    const m = /^data:(image\/(png|jpe?g|webp));base64,(.+)$/i.exec(String(dataUrl || ''));
+    if (!m) return NextResponse.json({ error: 'Please choose a JPG, PNG or WebP image.' }, { status: 400 });
+    const contentType = m[1];
+    const ext = /png/i.test(contentType) ? 'png' : /webp/i.test(contentType) ? 'webp' : 'jpg';
+    const buf = Buffer.from(m[3], 'base64');
+    if (buf.length > 130 * 1024) return NextResponse.json({ error: 'Image is over 130 KB even after compression — pick a smaller photo.' }, { status: 400 });
+    const safe = String(session.email).replace(/[^a-z0-9]/gi, '_').slice(0, 40);
+    const path = `${folder}/${safe}-${field}-${Date.now()}.${ext}`;
+    const up = await fetch(`${SB_URL}/storage/v1/object/applicants/${path}`, {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': contentType, 'x-upsert': 'true' },
+      body: buf,
+    });
+    if (!up.ok) {
+      const t = await up.text();
+      return NextResponse.json({ error: 'Upload failed. Try again.', detail: t.slice(0, 120) }, { status: 502 });
+    }
+    return NextResponse.json({ success: true, url: `${SB_URL}/storage/v1/object/public/applicants/${path}` });
   }
 
   // ── Submit an application ───────────────────────────────────────────────────

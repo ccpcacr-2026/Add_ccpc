@@ -70,6 +70,12 @@
   .tabbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
   .tabbar button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
   .tabbar button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .sec{font-weight:800;color:var(--navy);font-size:14px;text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--line);padding-bottom:6px;margin-top:8px}
+  .photo-field label{margin-bottom:6px}
+  .photo-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .photo-prev{width:56px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:none}
+  .photo-row input[type=file]{border:1px dashed var(--line);border-radius:10px;padding:8px;font-size:13px;background:var(--paper)}
+  .terms{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.5;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
 </style>
 </head>
 <body>
@@ -116,29 +122,68 @@
         <div id="submit-result"></div>
         <form id="app-form" onsubmit="submitApp(event)">
           <div class="grid">
+            <div class="sec full">Circular</div>
             <div><label>Session</label><select id="f-session" required></select></div>
             <div><label>Class applying for</label><select id="f-class" required></select></div>
-            <div><label>Category</label><select id="f-category"></select></div>
             <div><label>Version</label><select id="f-version"><option value="Bangla">Bangla</option><option value="English">English</option></select></div>
-            <div class="full"><label>Applicant's name (English)</label><input id="f-name_english" required placeholder="As per birth certificate" /></div>
-            <div class="full"><label>Applicant's name (Bangla)</label><input id="f-name_bangla" placeholder="নাম" /></div>
+            <div><label>Category</label><select id="f-category"></select></div>
+            <div><label>Quota</label><select id="f-quota"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+
+            <div class="sec full">Applicant's Information</div>
+            <div class="full"><label>Student's name (English)</label><input id="f-name_english" required placeholder="As per birth certificate" /></div>
+            <div class="full"><label>Student's name (Bangla)</label><input id="f-name_bangla" placeholder="নাম" /></div>
             <div><label>Date of birth</label><input id="f-date_of_birth" type="date" /></div>
             <div><label>Gender</label><select id="f-gender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+            <div><label>Blood group</label><input id="f-blood_group" placeholder="e.g. B+" /></div>
             <div><label>Religion</label><input id="f-religion" /></div>
-            <div><label>Blood group</label><input id="f-blood_group" placeholder="e.g. O+" /></div>
+            <div><label>Birth registration no.</label><input id="f-birth_reg_no" /></div>
+            <div><label>Nationality</label><input id="f-nationality" value="Bangladeshi" /></div>
+            <div><label>Emergency contact no.</label><input id="f-emergency_contact" placeholder="+8801…" /></div>
+            <div><label>Height (inch)</label><input id="f-height" /></div>
+            <div><label>Last class</label><input id="f-last_class" /></div>
+            <div><label>Last version</label><input id="f-last_version" /></div>
+            <div class="full"><label>Last institute</label><input id="f-last_institute" /></div>
             <div class="full"><label>Present address</label><textarea id="f-present_address" rows="2"></textarea></div>
-            <div><label>Emergency contact</label><input id="f-emergency_contact" placeholder="Mobile number" /></div>
-            <div><label>Last institute</label><input id="f-last_institute" /></div>
+            <div class="full"><label>Permanent address</label><textarea id="f-permanent_address" rows="2"></textarea></div>
+            <div class="full"><label>Co-curricular activities</label><input id="f-co_curricular" placeholder="e.g. Football, Drawing, Singing" /></div>
+            <div class="full photo-field"><label>Student's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-student_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('student_photo', this)" /><span id="ph-student_photo-status" class="note"></span></div></div>
+
+            <div class="sec full">Father's Details</div>
             <div><label>Father's name</label><input id="f-father_name" /></div>
-            <div><label>Father's contact</label><input id="f-father_contact" /></div>
+            <div><label>Profession / occupation</label><input id="f-father_profession" /></div>
+            <div><label>Designation / rank</label><input id="f-father_designation" /></div>
+            <div><label>Education</label><input id="f-father_education" /></div>
+            <div><label>Contact no.</label><input id="f-father_contact" /></div>
+            <div><label>NID</label><input id="f-father_nid" /></div>
+            <div class="full"><label>Office address / unit</label><input id="f-father_office_address" /></div>
+            <div><label>Yearly income</label><input id="f-father_yearly_income" /></div>
+            <div class="full photo-field"><label>Father's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-father_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('father_photo', this)" /><span id="ph-father_photo-status" class="note"></span></div></div>
+
+            <div class="sec full">Mother's Details</div>
             <div><label>Mother's name</label><input id="f-mother_name" /></div>
-            <div><label>Mother's contact</label><input id="f-mother_contact" /></div>
+            <div><label>Profession / occupation</label><input id="f-mother_profession" /></div>
+            <div><label>Designation / rank</label><input id="f-mother_designation" /></div>
+            <div><label>Education</label><input id="f-mother_education" /></div>
+            <div><label>Contact no.</label><input id="f-mother_contact" /></div>
+            <div><label>NID</label><input id="f-mother_nid" /></div>
+            <div class="full"><label>Office address / unit</label><input id="f-mother_office_address" /></div>
+            <div><label>Yearly income</label><input id="f-mother_yearly_income" /></div>
+            <div class="full photo-field"><label>Mother's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-mother_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('mother_photo', this)" /><span id="ph-mother_photo-status" class="note"></span></div></div>
+
+            <div class="sec full">Local Guardian's Details</div>
             <div><label>Guardian's name</label><input id="f-guardian_name" /></div>
-            <div><label>Guardian's contact</label><input id="f-guardian_contact" /></div>
+            <div><label>Relation</label><input id="f-guardian_relation" placeholder="e.g. Father" /></div>
+            <div><label>Profession / occupation</label><input id="f-guardian_profession" /></div>
+            <div><label>Designation / rank</label><input id="f-guardian_designation" /></div>
+            <div><label>Education</label><input id="f-guardian_education" /></div>
+            <div><label>Contact no.</label><input id="f-guardian_contact" /></div>
+            <div class="full"><label>Office address / unit</label><input id="f-guardian_office_address" /></div>
+            <div class="full photo-field"><label>Guardian's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-guardian_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('guardian_photo', this)" /><span id="ph-guardian_photo-status" class="note"></span></div></div>
           </div>
-          <div class="row" style="margin-top:18px">
+          <p class="terms">By submitting, I agree to the terms, rules &amp; fee structure of Chattogram Cantonment Public College and its admission selection system as described in the admission notice.</p>
+          <div class="row" style="margin-top:14px">
             <button type="submit" class="btn btn-accent" id="submit-btn">Submit application</button>
-            <span class="note">Review carefully — each submission gets its own unique numbers.</span>
+            <span class="note">Review carefully — each submission gets its own unique tracking &amp; index numbers.</span>
           </div>
         </form>
       </div>
@@ -249,12 +294,56 @@ function showTab(t){
 function showTrackOnly(){ document.getElementById('signin-card').classList.add('hidden'); document.getElementById('track-only').classList.remove('hidden'); }
 function hideTrackOnly(){ document.getElementById('track-only').classList.add('hidden'); document.getElementById('signin-card').classList.remove('hidden'); }
 
+// ── Photo compression + upload (bucket cap is 130 KB, images only) ──────────
+const photoUrls = {};
+function compressImage(file, maxDim, maxBytes){
+  return new Promise((resolve, reject) => {
+    const rd = new FileReader();
+    rd.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img, dim = maxDim;
+        const attempt = () => {
+          let w = width, h = height;
+          if (w > h && w > dim) { h = Math.round(h * dim / w); w = dim; }
+          else if (h > dim) { w = Math.round(w * dim / h); h = dim; }
+          const c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          let q = 0.9, url = c.toDataURL('image/jpeg', q);
+          while (url.length * 0.75 > maxBytes && q > 0.35) { q -= 0.1; url = c.toDataURL('image/jpeg', q); }
+          if (url.length * 0.75 > maxBytes && dim > 240) { dim = Math.round(dim * 0.8); return attempt(); }
+          resolve(url);
+        };
+        attempt();
+      };
+      img.onerror = reject; img.src = rd.result;
+    };
+    rd.onerror = reject; rd.readAsDataURL(file);
+  });
+}
+async function handlePhoto(field, inputEl){
+  const file = inputEl.files && inputEl.files[0]; if (!file) return;
+  const st = document.getElementById('ph-'+field+'-status');
+  st.textContent = 'Compressing…';
+  try {
+    const dataUrl = await compressImage(file, 520, 128*1024);
+    st.textContent = 'Uploading…';
+    const r = await api('uploadPhoto', { field, dataUrl });
+    if (r.error) { st.textContent = r.error; return; }
+    photoUrls[field] = r.url;
+    const im = document.getElementById('ph-'+field+'-img'); im.src = r.url; im.style.display = 'block';
+    st.textContent = '✓ uploaded';
+  } catch (e) { st.textContent = 'Could not process that image.'; }
+}
+
+const FORM_FIELDS = ['session','class','category','version','quota','name_english','name_bangla','date_of_birth','gender','blood_group','religion','birth_reg_no','nationality','emergency_contact','height','last_class','last_version','last_institute','present_address','permanent_address','co_curricular','father_name','father_profession','father_designation','father_education','father_contact','father_nid','father_office_address','father_yearly_income','mother_name','mother_profession','mother_designation','mother_education','mother_contact','mother_nid','mother_office_address','mother_yearly_income','guardian_name','guardian_relation','guardian_profession','guardian_designation','guardian_education','guardian_contact','guardian_office_address'];
+
 async function submitApp(e){
   e.preventDefault();
   const btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
-  const ids = ['session','class','category','version','name_english','name_bangla','date_of_birth','gender','religion','blood_group','present_address','emergency_contact','last_institute','father_name','father_contact','mother_name','mother_contact','guardian_name','guardian_contact'];
   const data = {};
-  ids.forEach(k=>{ const el=document.getElementById('f-'+k); if(el && el.value.trim()!=='') data[k]=el.value.trim(); });
+  FORM_FIELDS.forEach(k=>{ const el=document.getElementById('f-'+k); if(el && String(el.value).trim()!=='') data[k]=String(el.value).trim(); });
+  Object.keys(photoUrls).forEach(f=>{ if(photoUrls[f]) data[f]=photoUrls[f]; });
   const r = await api('submit', { data });
   btn.disabled = false; btn.textContent = 'Submit application';
   if (r.error) return msg(r.error);
@@ -268,6 +357,8 @@ async function submitApp(e){
       <div class="foot">Use the tracking number to check your status anytime. Your index number is your serial for this class.</div>
     </div>`;
   document.getElementById('app-form').reset();
+  Object.keys(photoUrls).forEach(f=>delete photoUrls[f]);
+  ['student_photo','father_photo','mother_photo','guardian_photo'].forEach(f=>{ const im=document.getElementById('ph-'+f+'-img'); if(im){im.src='';im.style.display='none';} const st=document.getElementById('ph-'+f+'-status'); if(st)st.textContent=''; });
   fillSelect('f-session', CFG.sessions); fillSelect('f-class', CFG.classes, true); fillSelect('f-category', CFG.categories, true);
   document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'center'});
   msg('Application submitted successfully.', 'ok');
