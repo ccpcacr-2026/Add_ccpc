@@ -390,6 +390,9 @@
         <button class="atab" onclick="showAdminTab('at-circular',this)">
           <i data-lucide="file-text" class="h-3.5 w-3.5"></i> Circular
         </button>
+        <button class="atab" onclick="showAdminTab('at-payments',this)">
+          <i data-lucide="credit-card" class="h-3.5 w-3.5"></i> Payments &amp; Admit
+        </button>
       </div>
 
       <!-- Tab: Index Pattern -->
@@ -871,11 +874,81 @@
         </div><!-- /circ-layout -->
       </div>
 
+      <!-- Tab: Payments & Admit Cards -->
+      <div id="at-payments" class="atab-panel hidden">
+        <div class="max-w-5xl mx-auto space-y-4">
+
+          <!-- Payment settings -->
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-1">
+              <p class="sec-lbl">Payment Settings</p>
+              <button class="nav-btn nav-btn-primary" onclick="savePaymentSettings()">💾 Save settings</button>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">SSLCommerz credentials stay on the server — applicants never see them. While they're empty, only the manual (TrxID) option is offered.</p>
+            <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+              <div><label class="flbl">SSLCommerz Store ID</label><input id="ps-store-id" class="finput finput-sm" placeholder="e.g. ccpc0live"></div>
+              <div><label class="flbl">SSLCommerz Store Password</label><input id="ps-store-pass" type="password" class="finput finput-sm" placeholder="store passwd (API)"></div>
+              <div><label class="flbl">Default fee (BDT)</label><input id="ps-default-fee" type="number" class="finput finput-sm" placeholder="e.g. 500"></div>
+              <div style="display:flex;flex-direction:column;gap:6px;justify-content:flex-end;padding-bottom:2px">
+                <label class="toggle-lbl"><input type="checkbox" id="ps-sandbox" checked> Sandbox (test) mode</label>
+                <label class="toggle-lbl"><input type="checkbox" id="ps-gateway-on" checked> Online gateway enabled</label>
+                <label class="toggle-lbl"><input type="checkbox" id="ps-manual-on" checked> Manual TrxID fallback</label>
+              </div>
+            </div>
+            <div class="grid gap-3 mt-3" style="grid-template-columns:1fr 2fr">
+              <div><label class="flbl">Receiving number(s) for manual payment</label><input id="ps-manual-numbers" class="finput finput-sm" placeholder="bKash 017…, Nagad 018…"></div>
+              <div><label class="flbl">Manual payment instructions (shown to applicants)</label><input id="ps-manual-instructions" class="finput finput-sm" placeholder="Send Money to the number above, then enter the TrxID…"></div>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-2">Per-class fees can be set on each class inside the <b>Circular</b> tab; the default fee applies when a class has none.</p>
+          </div>
+
+          <!-- Payment review -->
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-1">
+              <p class="sec-lbl">Payment Review</p>
+              <div class="flex gap-2 items-center">
+                <select id="pay-filter" class="finput finput-sm" style="width:140px" onchange="loadPaymentsList()">
+                  <option value="review" selected>Needs review</option>
+                  <option value="">All payments</option>
+                  <option value="valid">Gateway-verified</option>
+                  <option value="verified">Manually verified</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <button class="nav-btn" onclick="loadPaymentsList()"><i data-lucide="refresh-cw" class="h-3.5 w-3.5"></i></button>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Manual (TrxID) payments wait here until you verify them; verifying unlocks the applicant's form download. Also: mark an application paid directly by tracking/index →
+              <span class="inline-flex gap-1 items-center"><input id="markpaid-key" class="finput finput-sm" style="width:110px" placeholder="1A2B / 26…"><button class="nav-btn" style="font-size:10px" onclick="markPaidByKey()">Mark paid</button></span>
+            </p>
+            <div id="payments-table" class="overflow-x-auto">Loading…</div>
+          </div>
+
+          <!-- Admit card issuing -->
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p class="sec-lbl mb-1">Issue Admit Cards (room numbers)</p>
+            <p class="text-xs text-slate-400 mb-4">Upload a CSV or Excel file with two columns: <b>tracking or index number</b>, and <b>room number</b> (a header row is fine). Matching applications get their room assigned and their admit card unlocks for download in the applicant portal.</p>
+            <div class="flex gap-3 items-center flex-wrap mb-3">
+              <input type="file" id="admit-file" accept=".csv,.xlsx,.xls" class="finput finput-sm" style="max-width:320px" onchange="admitFileChosen(this)">
+              <span class="text-xs text-slate-400">or paste rows (key,room per line):</span>
+            </div>
+            <textarea id="admit-paste" class="finput finput-sm" rows="3" placeholder="26NU0001, Room 101&#10;1A2C, Room 101&#10;26NU0003, Room 102" style="width:100%;font-family:monospace" oninput="admitPasteChanged()"></textarea>
+            <div id="admit-preview" class="mt-3"></div>
+            <div class="flex gap-3 items-center mt-3">
+              <button class="nav-btn nav-btn-primary" id="admit-issue-btn" onclick="issueAdmitsGo()" disabled>Issue admit cards</button>
+              <span id="admit-issue-note" class="text-xs text-slate-400"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div><!-- /view-admin -->
 
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="/print-templates.js"></script>
 <script src="/form-designer.js"></script>
 <script src="/app.js"></script>
 </body>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CCPC Admission — Print</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#f1f5f9;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .msg{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:28px 36px;max-width:420px;text-align:center;color:#334155;font-size:14px;line-height:1.6}
+  .msg b{color:#0f172a}
+  .msg a{color:#0d9488;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="msg" id="status">Preparing your document…</div>
+<script src="/print-templates.js"></script>
+<script src="/form-designer.js"></script>
+<script>
+// Renders the paid applicant's application form, or the issued admit card,
+// straight into this tab (then the print dialog opens). Access is enforced
+// server-side by /api/apply printData: the form needs a verified payment,
+// the admit card needs an issued room number.
+(async function(){
+  const q = new URLSearchParams(location.search);
+  const id = parseInt(q.get('id'), 10);
+  const type = q.get('type') === 'admit' ? 'admit' : 'form';
+  const statusEl = document.getElementById('status');
+  const fail = t => { statusEl.innerHTML = `<b>${t}</b><br><br><a href="/apply.html">← Back to the applicant portal</a>`; };
+  if (!id) return fail('Missing application reference.');
+  let r;
+  try {
+    r = await (await fetch('/api/apply', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'printData', payload: { id, type } }),
+    })).json();
+  } catch { return fail('Could not reach the server. Check your connection and retry.'); }
+  if (r.error) return fail(r.error);
+
+  const a = r.application;
+  const s = r.settings || {};
+  let html;
+  if (type === 'admit') {
+    // Resolve the admit template the same way the admin panel does:
+    // active saved template → admit_card_settings → built-in defaults.
+    let admit = s.admit_card_settings || {};
+    const tpls = (s.admit_templates && s.admit_templates.templates) || [];
+    const active = tpls.find(t => t.id === (s.admit_templates && s.admit_templates.activeId)) || tpls[0];
+    if (active) admit = active.settings || admit;
+    html = generateAdmitHtml(a, deepMerge(DEFAULT_ADMIT, admit));
+  } else {
+    // Form: prefer the drag-drop layout if the admin designed one.
+    let layout = [];
+    const ftpls = (s.form_templates && s.form_templates.templates) || [];
+    const factive = ftpls.find(t => t.id === (s.form_templates && s.form_templates.activeId)) || ftpls[0];
+    if (factive) layout = (factive.settings && factive.settings.elements) || factive.elements || [];
+    if (!layout.length) layout = (s.form_settings && s.form_settings.elements) || [];
+    html = (layout.length && typeof generateFormFromLayout === 'function')
+      ? generateFormFromLayout(a, layout)
+      : generateFormHtml(a, deepMerge(DEFAULT_FORM, s.form_settings || {}));
+  }
+  document.open(); document.write(html); document.close();
+})();
+</script>
+</body>
+</html>

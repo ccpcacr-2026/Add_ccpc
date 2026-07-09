@@ -235,7 +235,182 @@ export async function POST(req) {
     return NextResponse.json({ success: true, url: `${SB_URL}/storage/v1/object/public/applicants/${path}` });
   }
 
-  // ── Submit an application ───────────────────────────────────────────────────
+  // ── STEP 1: Initiate an application ─────────────────────────────────────────
+  // The applicant picks class/version/category first; this mints the tracking
+  // and index numbers immediately (same race-proof primitives as submit) and
+  // creates the row in stage 'initiated'. The rest of the form is filled at
+  // leisure via saveDraft, then locked by submitFinal.
+  if (action === 'initiate') {
+    const session = readSession(req);
+    if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+
+    const pick = {
+      session: String(payload.session || '').trim(),
+      class: String(payload.class || '').trim(),
+      version: String(payload.version || '').trim(),
+      category: String(payload.category || '').trim(),
+      quota: String(payload.quota || 'No').trim() || 'No',
+    };
+    if (!pick.session || !pick.class || !pick.version || !pick.category) {
+      return NextResponse.json({ error: 'Pick session, class, version and category first.' });
+    }
+
+    // Validate against what the circular opened (fallback: any defined class).
+    const setRows = await sb(`admission_settings?key=in.(index_settings,circular_settings)`);
+    const setArr = (setRows && !setRows.error && Array.isArray(setRows)) ? setRows : [];
+    const idxSettings = (setArr.find(r => r.key === 'index_settings') || {}).value || {};
+    const circ = (setArr.find(r => r.key === 'circular_settings') || {}).value || {};
+    const openClasses = Array.isArray(circ.classes) ? circ.classes.filter(c => c && c.class) : [];
+    if (openClasses.length) {
+      const cls = openClasses.find(c => c.class === pick.class);
+      if (!cls) return NextResponse.json({ error: `Class ${pick.class} is not open in the current circular.` });
+      const versions = (Array.isArray(cls.versions) && cls.versions.length) ? cls.versions : ['Bangla', 'English'];
+      const categories = (Array.isArray(cls.categories) && cls.categories.length) ? cls.categories : Object.keys(idxSettings.categoryCodes || {});
+      if (!versions.includes(pick.version)) return NextResponse.json({ error: `${pick.version} version is not open for ${pick.class}.` });
+      if (!categories.includes(pick.category)) return NextResponse.json({ error: `${pick.category} category is not open for ${pick.class}.` });
+    } else if (!(pick.class in (idxSettings.classCodes || {}))) {
+      return NextResponse.json({ error: 'Unknown class.' });
+    }
+
+    // One live application per exact combo per account — a double-click or
+    // re-visit resumes the existing one instead of minting a fresh index.
+    const dupQ = `admission_applications?applicant_email=eq.${encodeURIComponent(session.email)}` +
+      `&session=eq.${encodeURIComponent(pick.session)}&class=eq.${encodeURIComponent(pick.class)}` +
+      `&version=eq.${encodeURIComponent(pick.version)}&category=eq.${encodeURIComponent(pick.category)}` +
+      `&select=id,tracking_id,index_id,stage,payment_status&order=created_at.desc&limit=1`;
+    const dup = await sb(dupQ);
+    if (Array.isArray(dup) && dup.length) {
+      return NextResponse.json({ success: true, existing: true, ...dup[0] });
+    }
+
+    const year = String(pick.session || new Date().getFullYear());
+    let lastErr = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const trackingId = await sbRpc('generate_tracking_id', {});
+      if (!trackingId) { lastErr = 'Could not generate a tracking number.'; continue; }
+      const counter = await sbRpc('increment_index_counter', { p_year: year, p_class: pick.class });
+      if (counter == null) { lastErr = 'Could not generate an index number.'; continue; }
+      const row = {
+        ...pick,
+        tracking_id: trackingId,
+        index_id: buildIndexId(idxSettings, pick.session, pick.class, counter),
+        applicant_email: session.email,
+        source: 'applicant',
+        status: 'Pending',
+        stage: 'initiated',
+        payment_status: 'none',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const res = await sb('admission_applications', 'POST', row);
+      if (res && res.error) {
+        if (/23505|duplicate key|unique/i.test(String(res.error))) { lastErr = res.error; continue; }
+        return NextResponse.json({ error: 'Could not start your application. Please try again.' });
+      }
+      return NextResponse.json({ success: true, id: res?.[0]?.id, tracking_id: trackingId, index_id: row.index_id, stage: 'initiated' });
+    }
+    return NextResponse.json({ error: 'Could not assign a unique number after several tries. Please retry.', detail: String(lastErr || '') });
+  }
+
+  // ── STEP 2: Save progress on an initiated application ───────────────────────
+  if (action === 'saveDraft') {
+    const session = readSession(req);
+    if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+    const id = parseInt(payload.id, 10);
+    if (!id) return NextResponse.json({ error: 'Missing application id.' });
+    const form = payload.data || {};
+    const LOCKED = new Set(['session', 'class', 'category', 'version', 'quota']); // fixed at initiate
+    const data = {};
+    for (const k of Object.keys(form)) if (ALLOWED_FIELDS.has(k) && !LOCKED.has(k)) data[k] = form[k];
+    data.updated_at = new Date().toISOString();
+    const q = `admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&stage=eq.initiated`;
+    const res = await fetch(`${SB_URL}/rest/v1/${q}`, {
+      method: 'PATCH',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation', 'Accept-Profile': 'admission', 'Content-Profile': 'admission' },
+      body: JSON.stringify(data),
+    });
+    const text = await res.text();
+    if (!res.ok) return NextResponse.json({ error: 'Could not save. Try again.' });
+    const rows = text ? JSON.parse(text) : [];
+    if (!Array.isArray(rows) || !rows.length) return NextResponse.json({ error: 'This application is already submitted — it can no longer be edited.' });
+    return NextResponse.json({ success: true, saved_at: data.updated_at });
+  }
+
+  // ── STEP 3: Final submit (locks the form) ───────────────────────────────────
+  if (action === 'submitFinal') {
+    const session = readSession(req);
+    if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+    const id = parseInt(payload.id, 10);
+    if (!id) return NextResponse.json({ error: 'Missing application id.' });
+    const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=id,stage,name_english,student_photo`);
+    const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!app) return NextResponse.json({ error: 'Application not found.' });
+    if (app.stage !== 'initiated') return NextResponse.json({ error: 'This application is already submitted.' });
+    const missing = [];
+    if (!app.name_english) missing.push("applicant's name (English)");
+    if (!app.student_photo) missing.push("student photo");
+    if (missing.length) return NextResponse.json({ error: 'Please complete before submitting: ' + missing.join(', ') + '. (Use Save progress first.)' });
+    const upd = await fetch(`${SB_URL}/rest/v1/admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&stage=eq.initiated`, {
+      method: 'PATCH',
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation', 'Accept-Profile': 'admission', 'Content-Profile': 'admission' },
+      body: JSON.stringify({ stage: 'submitted', updated_at: new Date().toISOString() }),
+    });
+    const utext = await upd.text();
+    const urows = upd.ok && utext ? JSON.parse(utext) : [];
+    if (!Array.isArray(urows) || !urows.length) return NextResponse.json({ error: 'Could not submit. Try again.' });
+    return NextResponse.json({ success: true, stage: 'submitted' });
+  }
+
+  // ── STEP 4 helper: what does this applicant owe, and how can they pay? ──────
+  if (action === 'payInfo') {
+    const session = readSession(req);
+    if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+    const id = parseInt(payload.id, 10);
+    if (!id) return NextResponse.json({ error: 'Missing application id.' });
+    const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=id,class,stage,payment_status,payment_amount,paid_at,tracking_id`);
+    const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!app) return NextResponse.json({ error: 'Application not found.' });
+    const setRows = await sb(`admission_settings?key=in.(payment_settings,circular_settings)`);
+    const setArr = (setRows && !setRows.error && Array.isArray(setRows)) ? setRows : [];
+    const pay = (setArr.find(r => r.key === 'payment_settings') || {}).value || {};
+    const circ = (setArr.find(r => r.key === 'circular_settings') || {}).value || {};
+    const circCls = (Array.isArray(circ.classes) ? circ.classes : []).find(c => c && c.class === app.class);
+    const fee = Number(circCls && circCls.fee) || Number(pay.defaultFee) || 0;
+    const gatewayReady = !!(pay.sslStoreId && pay.sslStorePass && pay.gatewayEnabled !== false);
+    return NextResponse.json({
+      stage: app.stage, payment_status: app.payment_status, paid_at: app.paid_at,
+      fee, currency: pay.currency || 'BDT',
+      gateway: gatewayReady,
+      sandbox: pay.sslSandbox !== false,
+      manual: pay.manualEnabled !== false,
+      manualNumbers: pay.manualNumbers || '',
+      manualInstructions: pay.manualInstructions || '',
+    });
+  }
+
+  // ── STEP 5: data for the printable form / admit card ────────────────────────
+  if (action === 'printData') {
+    const session = readSession(req);
+    if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
+    const id = parseInt(payload.id, 10);
+    const type = payload.type === 'admit' ? 'admit' : 'form';
+    if (!id) return NextResponse.json({ error: 'Missing application id.' });
+    const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=*`);
+    const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!app) return NextResponse.json({ error: 'Application not found.' });
+    if (type === 'form' && app.payment_status !== 'verified') {
+      return NextResponse.json({ error: 'The application form unlocks after your payment is confirmed.' });
+    }
+    if (type === 'admit' && !app.room_no) {
+      return NextResponse.json({ error: 'Your admit card has not been issued yet.' });
+    }
+    const setRows = await sb(`admission_settings?key=in.(form_settings,form_templates,admit_card_settings,admit_templates)`);
+    const settings = {};
+    if (setRows && !setRows.error && Array.isArray(setRows)) for (const r of setRows) settings[r.key] = r.value;
+    return NextResponse.json({ application: app, settings });
+  }
+
+  // ── Submit an application (legacy single-shot; superseded by initiate flow) ──
   if (action === 'submit') {
     const session = readSession(req);
     if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
@@ -289,7 +464,8 @@ export async function POST(req) {
   if (action === 'myApplications') {
     const session = readSession(req);
     if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
-    const rows = await sb(`admission_applications?applicant_email=eq.${encodeURIComponent(session.email)}&select=id,tracking_id,index_id,name_english,class,category,version,session,status,created_at&order=created_at.desc`);
+    // Full rows: the client needs every field to resume an in-progress draft.
+    const rows = await sb(`admission_applications?applicant_email=eq.${encodeURIComponent(session.email)}&select=*&order=created_at.desc`);
     return NextResponse.json({ applications: (rows && !rows.error) ? rows : [] });
   }
 
@@ -297,7 +473,7 @@ export async function POST(req) {
   if (action === 'track') {
     const t = String(payload.tracking_id || '').trim().toUpperCase();
     if (!t) return NextResponse.json({ error: 'Enter a tracking number.' });
-    const rows = await sb(`admission_applications?tracking_id=eq.${encodeURIComponent(t)}&select=tracking_id,index_id,name_english,class,session,status`);
+    const rows = await sb(`admission_applications?tracking_id=eq.${encodeURIComponent(t)}&select=tracking_id,index_id,name_english,class,session,status,stage,payment_status,room_no,admit_issued_at`);
     const app = (rows && !rows.error && rows[0]) ? rows[0] : null;
     if (!app) return NextResponse.json({ found: false });
     return NextResponse.json({ found: true, application: app });

@@ -158,7 +158,7 @@ export async function POST(req) {
 
   // ── List Applications ────────────────────────────────────────────────────
   if (action === 'listApplications') {
-    let q = 'admission_applications?select=id,tracking_id,index_id,name_english,name_bangla,class,category,version,session,status,created_at&order=created_at.desc&limit=1000';
+    let q = 'admission_applications?select=id,tracking_id,index_id,name_english,name_bangla,class,category,version,session,status,stage,payment_status,room_no,created_at&order=created_at.desc&limit=1000';
     if (payload.session) q += `&session=eq.${encodeURIComponent(payload.session)}`;
     if (payload.class)   q += `&class=eq.${encodeURIComponent(payload.class)}`;
     if (payload.status)  q += `&status=eq.${encodeURIComponent(payload.status)}`;
@@ -287,6 +287,100 @@ export async function POST(req) {
   if (action === 'listCounters') {
     const rows = await sb('index_counters?order=year.desc,class.asc');
     return NextResponse.json({ counters: rows || [] });
+  }
+
+  // ── PAYMENTS ───────────────────────────────────────────────────────────────
+
+  // Payment records (gateway + manual), newest first, joined with the
+  // application's identifying info so the review list is self-explanatory.
+  if (action === 'listPayments') {
+    let q = 'admission_payments?select=*&order=created_at.desc&limit=500';
+    if (payload.status) q += `&status=eq.${encodeURIComponent(payload.status)}`;
+    const pays = await sb(q);
+    if (!Array.isArray(pays)) return NextResponse.json({ payments: [] });
+    const ids = [...new Set(pays.map(p => p.application_id).filter(Boolean))];
+    let appsById = {};
+    if (ids.length) {
+      const apps = await sb(`admission_applications?id=in.(${ids.join(',')})&select=id,tracking_id,index_id,name_english,class,session,payment_status,stage`);
+      if (Array.isArray(apps)) for (const a of apps) appsById[a.id] = a;
+    }
+    return NextResponse.json({ payments: pays.map(p => ({ ...p, application: appsById[p.application_id] || null })) });
+  }
+
+  // Verify or reject a manual (TrxID) payment.
+  if (action === 'verifyPayment') {
+    const pid = parseInt(payload.paymentId, 10);
+    const approve = !!payload.approve;
+    if (!pid) return NextResponse.json({ error: 'Missing payment id' });
+    const rows = await sb(`admission_payments?id=eq.${pid}&select=*`);
+    const p = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!p) return NextResponse.json({ error: 'Payment not found' });
+    const pRes = await sb(`admission_payments?id=eq.${pid}`, 'PATCH', {
+      status: approve ? 'verified' : 'rejected', updated_at: new Date().toISOString(),
+    });
+    if (pRes && pRes.error) return NextResponse.json({ error: 'Could not update payment' });
+    if (p.application_id) {
+      const aRes = await sb(`admission_applications?id=eq.${p.application_id}`, 'PATCH', approve ? {
+        payment_status: 'verified', stage: 'paid', paid_at: new Date().toISOString(),
+        payment_amount: p.amount, updated_at: new Date().toISOString(),
+      } : {
+        payment_status: 'rejected', updated_at: new Date().toISOString(),
+      });
+      if (aRes && aRes.error) return NextResponse.json({ error: 'Payment updated but the application row failed — retry.' });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  // Manual override: mark an application paid without a payment record
+  // (e.g. fee collected at the college office).
+  if (action === 'markPaid') {
+    const appId = parseInt(payload.appId, 10);
+    if (!appId) return NextResponse.json({ error: 'Missing application id' });
+    const res = await sb(`admission_applications?id=eq.${appId}`, 'PATCH', {
+      payment_status: 'verified', stage: 'paid', paid_at: new Date().toISOString(),
+      payment_method: 'offline', updated_at: new Date().toISOString(),
+    });
+    if (res && res.error) return NextResponse.json({ error: 'Could not update' });
+    return NextResponse.json({ success: true });
+  }
+
+  // ── ADMIT CARDS ────────────────────────────────────────────────────────────
+
+  // Bulk-issue admit cards from an uploaded room list. Each row is
+  // { key, room } where key matches either a tracking_id or an index_id.
+  // Applications are grouped by room so the whole issue is a handful of
+  // PATCHes rather than one per student.
+  if (action === 'issueAdmits') {
+    const list = Array.isArray(payload.rows) ? payload.rows : [];
+    if (!list.length) return NextResponse.json({ error: 'No rows to issue' });
+    const apps = await sb('admission_applications?select=id,tracking_id,index_id&limit=10000');
+    if (!Array.isArray(apps)) return NextResponse.json({ error: 'Could not load applications' });
+    const byKey = {};
+    for (const a of apps) {
+      if (a.tracking_id) byKey[String(a.tracking_id).trim().toUpperCase()] = a.id;
+      if (a.index_id) byKey[String(a.index_id).trim().toUpperCase()] = a.id;
+    }
+    const unmatched = [];
+    const roomByAppId = {};
+    for (const r of list) {
+      const key = String(r.key || '').trim().toUpperCase();
+      const room = String(r.room || '').trim();
+      if (!key || !room) continue;
+      const appId = byKey[key];
+      if (appId) roomByAppId[appId] = room; else unmatched.push(key);
+    }
+    // group ids per room → one PATCH per distinct room
+    const idsByRoom = {};
+    for (const [appId, room] of Object.entries(roomByAppId)) (idsByRoom[room] = idsByRoom[room] || []).push(appId);
+    const now = new Date().toISOString();
+    let updated = 0;
+    for (const [room, ids] of Object.entries(idsByRoom)) {
+      const res = await sb(`admission_applications?id=in.(${ids.join(',')})`, 'PATCH', {
+        room_no: room, admit_issued_at: now, updated_at: now,
+      });
+      if (!(res && res.error)) updated += ids.length;
+    }
+    return NextResponse.json({ success: true, updated, matched: Object.keys(roomByAppId).length, unmatched });
   }
 
   return NextResponse.json({ error: 'Unknown action' });

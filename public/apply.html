@@ -76,6 +76,25 @@
   .photo-prev{width:56px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:none}
   .photo-row input[type=file]{border:1px dashed var(--line);border-radius:10px;padding:8px;font-size:13px;background:var(--paper)}
   .terms{font-size:12px;color:var(--muted);margin-top:18px;line-height:1.5;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+  .stepper{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+  .stp{flex:1;min-width:90px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.03em;padding:8px 6px;border-radius:9px;background:var(--paper);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .stp.on{background:var(--navy);border-color:var(--navy);color:#fff}
+  .stp.done{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+  .combo-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .cchip{background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:6px 12px;font-size:12px;font-weight:700}
+  .cchip b{color:var(--navy)}
+  .cchip.hero{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+  .paybox{border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .paybox h3{margin:0 0 6px;font-size:15px;color:var(--navy)}
+  .fee-big{font-size:30px;font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums}
+  .dl-btn{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:12px;background:var(--surface)}
+  .dl-btn .t{font-weight:800;color:var(--navy)}
+  .dl-btn .d{font-size:12px;color:var(--muted);margin-top:2px}
+  .pill.review{background:#fff4e0;color:#a2711a}
+  .pill.paid,.pill.verified{background:var(--ok-soft);color:var(--accent-ink)}
+  .pill.initiated{background:#e8f0fb;color:#1e4f8a}
+  .pill.submitted{background:#ede9fe;color:#6d28d9}
+  .pill.none{background:var(--paper);color:var(--muted)}
 </style>
 </head>
 <body>
@@ -115,20 +134,40 @@
         <button id="tab-track" onclick="showTab('track')">Track</button>
       </div>
 
-      <!-- NEW APPLICATION -->
+      <!-- NEW APPLICATION (stepper) -->
       <div id="pane-new" class="card">
         <h2>New application</h2>
-        <p class="sub">Fill in the details. You'll get a <b>tracking number</b> and an <b>index number</b> as soon as you submit.</p>
+        <p class="sub">Choose what you're applying for first — your <b>tracking</b> and <b>index</b> numbers are reserved immediately. Then fill in the form at your own pace, submit, pay, and download.</p>
+        <div class="stepper" id="stepper">
+          <span class="stp" data-s="1">1 · Select</span>
+          <span class="stp" data-s="2">2 · Fill in</span>
+          <span class="stp" data-s="3">3 · Submit</span>
+          <span class="stp" data-s="4">4 · Pay</span>
+          <span class="stp" data-s="5">5 · Download</span>
+        </div>
         <div id="submit-result"></div>
-        <form id="app-form" onsubmit="submitApp(event)">
-          <div class="grid">
-            <div class="sec full">Circular</div>
-            <div><label>Session</label><select id="f-session" required></select></div>
-            <div><label>Class applying for</label><select id="f-class" required onchange="onClassChange()"></select></div>
-            <div><label>Version</label><select id="f-version" required></select></div>
-            <div><label>Category</label><select id="f-category" required></select></div>
-            <div><label>Quota</label><select id="f-quota"><option value="No">No</option><option value="Yes">Yes</option></select></div>
 
+        <!-- STEP 1: pick the circular combo -->
+        <div id="step-select">
+          <div class="grid">
+            <div class="sec full">What are you applying for?</div>
+            <div><label>Session</label><select id="f-session"></select></div>
+            <div><label>Class applying for</label><select id="f-class" onchange="onClassChange()"></select></div>
+            <div><label>Version</label><select id="f-version"></select></div>
+            <div><label>Category</label><select id="f-category"></select></div>
+            <div><label>Quota</label><select id="f-quota"><option value="No">No</option><option value="Yes">Yes</option></select></div>
+          </div>
+          <div class="row" style="margin-top:16px">
+            <button class="btn btn-accent" id="initiate-btn" onclick="initiateApp()">Start application →</button>
+            <span class="note">This creates your application and reserves its tracking &amp; index numbers. Class/version/category can't be changed afterwards.</span>
+          </div>
+        </div>
+
+        <!-- STEP 2: the form (save progress any time, then submit) -->
+        <div id="step-fill" class="hidden">
+        <div id="combo-bar"></div>
+        <form id="app-form" onsubmit="submitFinalApp(event)">
+          <div class="grid">
             <div class="sec full">Applicant's Information</div>
             <div class="full"><label>Student's name (English)</label><input id="f-name_english" required placeholder="As per birth certificate" /></div>
             <div class="full"><label>Student's name (Bangla)</label><input id="f-name_bangla" placeholder="নাম" /></div>
@@ -182,10 +221,26 @@
           </div>
           <p class="terms">By submitting, I agree to the terms, rules &amp; fee structure of Chattogram Cantonment Public College and its admission selection system as described in the admission notice.</p>
           <div class="row" style="margin-top:14px">
+            <button type="button" class="btn btn-ghost" id="save-btn" onclick="saveProgress()">Save progress</button>
             <button type="submit" class="btn btn-accent" id="submit-btn">Submit application</button>
-            <span class="note">Review carefully — each submission gets its own unique tracking &amp; index numbers.</span>
+            <span class="note" id="save-note">Your progress is saved on this application — you can come back anytime before submitting.</span>
           </div>
         </form>
+        </div>
+
+        <!-- STEP 4: payment -->
+        <div id="step-pay" class="hidden">
+          <div id="pay-combo-bar"></div>
+          <div class="sec" style="margin-bottom:14px">Application fee</div>
+          <div id="pay-body"><p class="note">Loading payment options…</p></div>
+        </div>
+
+        <!-- STEP 5: downloads -->
+        <div id="step-done" class="hidden">
+          <div id="done-combo-bar"></div>
+          <div class="sec" style="margin-bottom:14px">Your documents</div>
+          <div id="done-body"></div>
+        </div>
       </div>
 
       <!-- MY APPLICATIONS -->
@@ -290,6 +345,17 @@ function enterApp(me){
   document.getElementById('track-only').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('who').innerHTML = `<b>${esc(me.name||me.email)}</b><span style="opacity:.85">${esc(me.email)}</span> <button onclick="doLogout()">Sign out</button>`;
+  gotoStep(1);
+  // Returning from the payment gateway? Surface the outcome and land on "My applications".
+  const payResult = new URLSearchParams(location.search).get('pay');
+  if (payResult) {
+    history.replaceState(null, '', location.pathname);
+    if (payResult === 'success') msg('Payment received — your application form is now ready to download.', 'ok');
+    else if (payResult === 'cancelled') msg('Payment was cancelled. You can retry from “My applications”.');
+    else msg('The payment did not complete. You can retry from “My applications”.');
+    showTab('mine');
+    return;
+  }
   showTab('new');
 }
 async function doLogin(){
@@ -350,35 +416,204 @@ async function handlePhoto(field, inputEl){
     photoUrls[field] = r.url;
     const im = document.getElementById('ph-'+field+'-img'); im.src = r.url; im.style.display = 'block';
     st.textContent = '✓ uploaded';
+    // persist immediately so an uploaded photo is never lost with an unsaved draft
+    if (currentApp && currentApp.stage === 'initiated') api('saveDraft', { id: currentApp.id, data: { [field]: r.url } });
   } catch (e) { st.textContent = 'Could not process that image.'; }
 }
 
 const FORM_FIELDS = ['session','class','category','version','quota','name_english','name_bangla','date_of_birth','gender','blood_group','religion','birth_reg_no','nationality','emergency_contact','height','last_class','last_version','last_institute','present_address','permanent_address','co_curricular','father_name','father_profession','father_designation','father_education','father_contact','father_nid','father_office_address','father_yearly_income','mother_name','mother_profession','mother_designation','mother_education','mother_contact','mother_nid','mother_office_address','mother_yearly_income','guardian_name','guardian_relation','guardian_profession','guardian_designation','guardian_education','guardian_contact','guardian_office_address'];
+const LOCKED_FIELDS = ['session','class','category','version','quota']; // fixed at initiate
+const PHOTO_FIELDS = ['student_photo','father_photo','mother_photo','guardian_photo'];
 
-async function submitApp(e){
-  e.preventDefault();
-  const btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
+const payApi = async (action, payload={}) => {
+  const r = await fetch('/api/pay', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload}) });
+  return r.json();
+};
+
+let currentApp = null;   // the application being worked on in the stepper
+let formDirty = false;
+
+function gotoStep(n){
+  document.getElementById('step-select').classList.toggle('hidden', n!==1);
+  document.getElementById('step-fill').classList.toggle('hidden', !(n===2||n===3));
+  document.getElementById('step-pay').classList.toggle('hidden', n!==4);
+  document.getElementById('step-done').classList.toggle('hidden', n!==5);
+  document.querySelectorAll('#stepper .stp').forEach(el=>{
+    const s=+el.dataset.s;
+    el.classList.toggle('on', s===n || (n===2&&s===3&&false));
+    el.classList.toggle('done', s<n);
+  });
+}
+function comboChips(a){
+  return `<div class="combo-chips">
+    <span class="cchip hero">Tracking <b class="mono">${esc(a.tracking_id||'')}</b></span>
+    <span class="cchip hero">Index <b class="mono">${esc(a.index_id||'')}</b></span>
+    <span class="cchip">Session <b>${esc(a.session||'')}</b></span>
+    <span class="cchip">Class <b>${esc(a.class||'')}</b></span>
+    <span class="cchip">Version <b>${esc(a.version||'')}</b></span>
+    <span class="cchip">Category <b>${esc(a.category||'')}</b></span>
+  </div>`;
+}
+function ticketHtml(a){
+  return `<div class="ticket" style="margin-bottom:18px">
+    <div class="head">✓ Application started — save these numbers</div>
+    <div class="nums">
+      <div class="num"><div class="lbl">Tracking number</div><div class="val mono">${esc(a.tracking_id)}</div></div>
+      <div class="num"><div class="lbl">Index number</div><div class="val mono">${esc(a.index_id)}</div></div>
+    </div>
+    <div class="foot">These are reserved for you permanently. Fill in the rest of the form below — you can save and come back anytime before submitting.</div>
+  </div>`;
+}
+
+// ── STEP 1 → 2: initiate (mints tracking + index server-side) ────────────────
+async function initiateApp(){
+  const pick = {};
+  LOCKED_FIELDS.forEach(k=>{ const el=document.getElementById('f-'+k); pick[k]=el?el.value.trim():''; });
+  if (!pick.session || !pick.class || !pick.version || !pick.category) return msg('Pick session, class, version and category first.');
+  const btn = document.getElementById('initiate-btn'); btn.disabled = true; btn.textContent = 'Starting…';
+  const r = await api('initiate', pick);
+  btn.disabled = false; btn.textContent = 'Start application →';
+  if (r.error) return msg(r.error);
+  if (r.existing) {
+    // Same combo already started with this account — resume it instead.
+    msg('You already have an application for this class — resuming it.', 'ok');
+    const mine = await api('myApplications');
+    const full = (mine.applications||[]).find(a=>a.id===r.id);
+    if (full) return resumeApp(full);
+  }
+  currentApp = { ...pick, id:r.id, tracking_id:r.tracking_id, index_id:r.index_id, stage:'initiated', payment_status:'none' };
+  document.getElementById('submit-result').innerHTML = ticketHtml(currentApp);
+  document.getElementById('combo-bar').innerHTML = comboChips(currentApp);
+  clearFormFields();
+  gotoStep(2);
+  document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function clearFormFields(){
+  FORM_FIELDS.forEach(k=>{ if(LOCKED_FIELDS.includes(k))return; const el=document.getElementById('f-'+k); if(el) el.value = (k==='nationality'?'Bangladeshi':''); });
+  PHOTO_FIELDS.forEach(f=>{ delete photoUrls[f]; const im=document.getElementById('ph-'+f+'-img'); if(im){im.src='';im.style.display='none';} const st=document.getElementById('ph-'+f+'-status'); if(st)st.textContent=''; });
+  formDirty=false;
+}
+function collectDraft(){
   const data = {};
-  FORM_FIELDS.forEach(k=>{ const el=document.getElementById('f-'+k); if(el && String(el.value).trim()!=='') data[k]=String(el.value).trim(); });
-  Object.keys(photoUrls).forEach(f=>{ if(photoUrls[f]) data[f]=photoUrls[f]; });
-  const r = await api('submit', { data });
+  FORM_FIELDS.forEach(k=>{ if(LOCKED_FIELDS.includes(k))return; const el=document.getElementById('f-'+k); if(el) data[k]=String(el.value).trim(); });
+  PHOTO_FIELDS.forEach(f=>{ if(photoUrls[f]) data[f]=photoUrls[f]; });
+  return data;
+}
+
+// ── STEP 2: save progress ─────────────────────────────────────────────────────
+async function saveProgress(silent=false){
+  if (!currentApp) return;
+  const note = document.getElementById('save-note');
+  if (!silent) note.textContent = 'Saving…';
+  const r = await api('saveDraft', { id: currentApp.id, data: collectDraft() });
+  if (r.error) { if(!silent) msg(r.error); return false; }
+  formDirty = false;
+  note.textContent = 'Saved ' + new Date().toLocaleTimeString();
+  return true;
+}
+// autosave every 60s while filling
+setInterval(()=>{ if (formDirty && currentApp && currentApp.stage==='initiated') saveProgress(true); }, 60000);
+window.addEventListener('beforeunload', e=>{ if (formDirty && currentApp && currentApp.stage==='initiated'){ e.preventDefault(); e.returnValue=''; } });
+
+// ── STEP 3: final submit ──────────────────────────────────────────────────────
+async function submitFinalApp(e){
+  e.preventDefault();
+  if (!currentApp) return;
+  if (!confirm('Submit this application? You will not be able to edit it afterwards.')) return;
+  const btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  const ok = await saveProgress(true);
+  const r = ok===false ? {error:'Could not save your latest changes — try again.'} : await api('submitFinal', { id: currentApp.id });
   btn.disabled = false; btn.textContent = 'Submit application';
   if (r.error) return msg(r.error);
-  document.getElementById('submit-result').innerHTML = `
-    <div class="ticket" style="margin-bottom:18px">
-      <div class="head">✓ Application submitted — save these numbers</div>
-      <div class="nums">
-        <div class="num"><div class="lbl">Tracking number</div><div class="val mono">${esc(r.tracking_id)}</div></div>
-        <div class="num"><div class="lbl">Index number</div><div class="val mono">${esc(r.index_id)}</div></div>
-      </div>
-      <div class="foot">Use the tracking number to check your status anytime. Your index number is your serial for this class.</div>
-    </div>`;
-  document.getElementById('app-form').reset();
-  Object.keys(photoUrls).forEach(f=>delete photoUrls[f]);
-  ['student_photo','father_photo','mother_photo','guardian_photo'].forEach(f=>{ const im=document.getElementById('ph-'+f+'-img'); if(im){im.src='';im.style.display='none';} const st=document.getElementById('ph-'+f+'-status'); if(st)st.textContent=''; });
-  fillSelect('f-session', CFG.sessions); fillSelect('f-class', CFG.classes, true); onClassChange();
-  document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'center'});
-  msg('Application submitted successfully.', 'ok');
+  currentApp.stage = 'submitted';
+  msg('Application submitted. One last step — the fee payment.', 'ok');
+  showPayStep();
+}
+
+// ── STEP 4: payment ───────────────────────────────────────────────────────────
+async function showPayStep(){
+  gotoStep(4);
+  document.getElementById('pay-combo-bar').innerHTML = comboChips(currentApp);
+  const host = document.getElementById('pay-body');
+  host.innerHTML = '<p class="note">Loading payment options…</p>';
+  const r = await api('payInfo', { id: currentApp.id });
+  if (r.error) { host.innerHTML = `<div class="msg err">${esc(r.error)}</div>`; return; }
+  currentApp.payment_status = r.payment_status;
+  if (r.payment_status === 'verified') { showDoneStep(); return; }
+  let html = `<div class="paybox"><div class="note">Amount due</div><div class="fee-big">৳ ${esc(String(r.fee))}</div><div class="note">${esc(r.currency)} · Application fee for Class ${esc(currentApp.class)}</div></div>`;
+  if (r.payment_status === 'review') {
+    html += `<div class="msg ok">Your payment is being verified by the admission office. You'll be able to download the form once it's confirmed — check back here or in “My applications”.</div>`;
+  } else {
+    if (r.gateway) {
+      html += `<div class="paybox"><h3>Pay online</h3><p class="note" style="margin:0 0 12px">Cards, bKash, Nagad, rocket &amp; internet banking via the secure SSLCommerz gateway.${r.sandbox?' <b>(TEST MODE)</b>':''}</p>
+        <button class="btn btn-accent" onclick="payOnline()">Pay ৳ ${esc(String(r.fee))} online →</button></div>`;
+    }
+    if (r.manual) {
+      html += `<div class="paybox"><h3>${r.gateway?'Or pay manually':'Pay manually'}</h3>
+        ${r.manualNumbers?`<p class="note" style="margin:0 0 4px">Send the fee to: <b>${esc(r.manualNumbers)}</b></p>`:''}
+        ${r.manualInstructions?`<p class="note" style="margin:0 0 12px">${esc(r.manualInstructions)}</p>`:'<p class="note" style="margin:0 0 12px">Send the fee by bKash/Nagad, then enter the Transaction ID below. The office verifies it before your form unlocks.</p>'}
+        <div class="grid">
+          <div><label>Method</label><select id="mp-method"><option>bKash</option><option>Nagad</option><option>Rocket</option><option>Bank</option></select></div>
+          <div><label>Transaction ID (TrxID)</label><input id="mp-trx" placeholder="e.g. 9XA2B7C1D4" class="mono"></div>
+          <div class="full"><label>Sent from (your number)</label><input id="mp-payer" placeholder="+8801…"></div>
+        </div>
+        <div class="row" style="margin-top:12px"><button class="btn btn-primary" onclick="manualPay()">I have paid — submit TrxID</button></div></div>`;
+    }
+    if (!r.gateway && !r.manual) html += `<div class="msg err">Payment collection hasn't opened yet. Please check back later — your application is safely submitted.</div>`;
+  }
+  host.innerHTML = html;
+}
+async function payOnline(){
+  const r = await payApi('init', { id: currentApp.id });
+  if (r.error) return msg(r.error);
+  location.href = r.url; // SSLCommerz hosted checkout; returns to /apply.html?pay=…
+}
+async function manualPay(){
+  const method = document.getElementById('mp-method').value;
+  const trxId = document.getElementById('mp-trx').value.trim();
+  const payer = document.getElementById('mp-payer').value.trim();
+  if (!trxId) return msg('Enter the Transaction ID you received after sending the money.');
+  const r = await payApi('manualSubmit', { id: currentApp.id, method, trxId, payerNumber: payer });
+  if (r.error) return msg(r.error);
+  msg('Payment submitted for verification.', 'ok');
+  showPayStep();
+}
+
+// ── STEP 5: downloads ─────────────────────────────────────────────────────────
+function showDoneStep(){
+  gotoStep(5);
+  document.getElementById('done-combo-bar').innerHTML = comboChips(currentApp);
+  const admitReady = !!currentApp.room_no;
+  document.getElementById('done-body').innerHTML = `
+    <div class="msg ok">Payment confirmed — thank you! Your application is complete.</div>
+    <div class="dl-btn"><div><div class="t">Application form (PDF)</div><div class="d">The official filled-in form — print it or save as PDF.</div></div>
+      <button class="btn btn-primary" onclick="window.open('/print.html?type=form&id='+currentApp.id,'_blank')">Download</button></div>
+    <div class="dl-btn"><div><div class="t">Admit card</div><div class="d">${admitReady?`Exam room <b>${esc(currentApp.room_no)}</b> — bring a printed copy to the exam.`:'Available once the admission office issues admit cards with room numbers. Check back later.'}</div></div>
+      <button class="btn ${admitReady?'btn-accent':'btn-ghost'}" ${admitReady?'':'disabled'} onclick="window.open('/print.html?type=admit&id='+currentApp.id,'_blank')">${admitReady?'Download':'Not issued yet'}</button></div>`;
+}
+
+// ── Resume an application from "My applications" ─────────────────────────────
+function resumeApp(a){
+  currentApp = a;
+  showTab('new');
+  document.getElementById('submit-result').innerHTML = '';
+  if (a.stage === 'initiated') {
+    FORM_FIELDS.forEach(k=>{ if(LOCKED_FIELDS.includes(k))return; const el=document.getElementById('f-'+k); if(el) el.value = a[k]==null?'':a[k]; });
+    PHOTO_FIELDS.forEach(f=>{
+      const st=document.getElementById('ph-'+f+'-status'); const im=document.getElementById('ph-'+f+'-img');
+      if (a[f]) { photoUrls[f]=a[f]; if(im){im.src=a[f];im.style.display='block';} if(st)st.textContent='✓ uploaded'; }
+      else { delete photoUrls[f]; if(im){im.src='';im.style.display='none';} if(st)st.textContent=''; }
+    });
+    formDirty = false;
+    document.getElementById('submit-result').innerHTML = ticketHtml(a);
+    document.getElementById('combo-bar').innerHTML = comboChips(a);
+    gotoStep(2);
+  } else if (a.payment_status === 'verified') {
+    showDoneStep();
+  } else {
+    showPayStep();
+  }
 }
 
 async function loadMine(){
@@ -386,16 +621,34 @@ async function loadMine(){
   host.innerHTML = '<p class="note">Loading…</p>';
   const r = await api('myApplications');
   const apps = r.applications || [];
-  if (!apps.length){ host.innerHTML = '<p class="note">No applications yet. Submit one from the “New application” tab.</p>'; return; }
+  window._mineApps = apps;
+  if (!apps.length){ host.innerHTML = '<p class="note">No applications yet. Start one from the “New application” tab.</p>'; return; }
+  const stageLabel = a => {
+    if (a.payment_status==='verified') return '<span class="pill paid">Paid ✓</span>';
+    if (a.payment_status==='review') return '<span class="pill review">Payment review</span>';
+    if (a.stage==='submitted') return '<span class="pill submitted">Awaiting payment</span>';
+    if (a.stage==='initiated') return '<span class="pill initiated">Draft</span>';
+    return `<span class="pill none">${esc(a.stage||'—')}</span>`;
+  };
+  const actionBtn = (a,i) => {
+    if (a.stage==='initiated') return `<button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="resumeApp(window._mineApps[${i}])">Continue →</button>`;
+    if (a.payment_status==='verified') {
+      const admit = a.room_no ? ` <button class="btn btn-accent" style="padding:7px 14px;font-size:12px" onclick="window.open('/print.html?type=admit&id=${a.id}','_blank')">Admit card</button>` : '';
+      return `<button class="btn btn-primary" style="padding:7px 14px;font-size:12px" onclick="window.open('/print.html?type=form&id=${a.id}','_blank')">Form</button>${admit}`;
+    }
+    if (a.payment_status==='review') return `<button class="btn btn-ghost" style="padding:7px 14px;font-size:12px" onclick="resumeApp(window._mineApps[${i}])">View</button>`;
+    return `<button class="btn btn-accent" style="padding:7px 14px;font-size:12px" onclick="resumeApp(window._mineApps[${i}])">Pay now</button>`;
+  };
   host.innerHTML = `<div class="tablescroll"><table>
-    <thead><tr><th>Tracking</th><th>Index</th><th>Name</th><th>Class</th><th>Session</th><th>Status</th></tr></thead>
-    <tbody>${apps.map(a=>`<tr>
+    <thead><tr><th>Tracking</th><th>Index</th><th>Class</th><th>Session</th><th>Progress</th><th>Result</th><th></th></tr></thead>
+    <tbody>${apps.map((a,i)=>`<tr>
       <td class="mono">${esc(a.tracking_id)}</td>
       <td class="mono">${esc(a.index_id)}</td>
-      <td>${esc(a.name_english)}</td>
-      <td>${esc(a.class)}</td>
+      <td>${esc(a.class)} · ${esc(a.version)}</td>
       <td>${esc(a.session)}</td>
+      <td>${stageLabel(a)}${a.room_no?` <span class="pill paid">Room ${esc(a.room_no)}</span>`:''}</td>
       <td><span class="pill ${esc((a.status||'Pending').split(' ')[0])}">${esc(a.status||'Pending')}</span></td>
+      <td style="white-space:nowrap;text-align:right">${actionBtn(a,i)}</td>
     </tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -406,12 +659,17 @@ async function doTrack(suffix=''){
   const r = await api('track', { tracking_id: val });
   if (!r.found){ host.innerHTML = `<div class="msg err">No application found for that tracking number.</div>`; return; }
   const a = r.application;
+  const payPill = a.payment_status==='verified' ? '<span class="pill paid">Paid ✓</span>'
+    : a.payment_status==='review' ? '<span class="pill review">Payment review</span>'
+    : a.stage==='submitted' ? '<span class="pill submitted">Awaiting payment</span>'
+    : a.stage==='initiated' ? '<span class="pill initiated">Draft</span>' : '';
   host.innerHTML = `<div class="card" style="box-shadow:none;margin:0">
     <div class="row" style="justify-content:space-between"><div><b>${esc(a.name_english||'Applicant')}</b><div class="note">Class ${esc(a.class)} · Session ${esc(a.session)}</div></div>
-    <span class="pill ${esc((a.status||'Pending').split(' ')[0])}">${esc(a.status||'Pending')}</span></div>
+    <div>${payPill} <span class="pill ${esc((a.status||'Pending').split(' ')[0])}">${esc(a.status||'Pending')}</span></div></div>
     <div class="row" style="margin-top:12px;gap:24px">
       <div><div class="note">Tracking</div><div class="mono" style="font-size:16px;font-weight:800">${esc(a.tracking_id)}</div></div>
       <div><div class="note">Index</div><div class="mono" style="font-size:16px;font-weight:800">${esc(a.index_id)}</div></div>
+      ${a.room_no?`<div><div class="note">Exam room</div><div class="mono" style="font-size:16px;font-weight:800">${esc(a.room_no)}</div></div>`:''}
     </div></div>`;
 }
 
