@@ -135,6 +135,37 @@ export async function POST(req) {
     return NextResponse.json({ authed: !!s, email: s?.email || null, name: s?.name || null });
   }
 
+  // ── Google sign-in ──────────────────────────────────────────────────────────
+  // The frontend uses Google Identity Services (the one-tap / "Sign in with
+  // Google" picker that surfaces the accounts the user is already logged into).
+  // It returns a signed ID token; we verify it with Google (audience must match
+  // our client id, email must be verified), then issue the same session cookie
+  // as email login. Only a GOOGLE_CLIENT_ID is needed — no client secret.
+  if (action === 'googleConfig') {
+    return NextResponse.json({ clientId: process.env.GOOGLE_CLIENT_ID || '' });
+  }
+  if (action === 'googleLogin') {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const credential = payload.credential;
+    if (!clientId) return NextResponse.json({ error: 'Google sign-in is not configured yet.' }, { status: 400 });
+    if (!credential) return NextResponse.json({ error: 'Missing Google credential.' }, { status: 400 });
+    let info = null;
+    try {
+      const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential), { signal: AbortSignal.timeout(8000) });
+      if (r.ok) {
+        const c = await r.json();
+        const issOk = c.iss === 'accounts.google.com' || c.iss === 'https://accounts.google.com';
+        const emailOk = c.email_verified === true || c.email_verified === 'true';
+        if (c.aud === clientId && issOk && emailOk && c.email) {
+          info = { email: String(c.email).toLowerCase(), name: c.name || c.given_name || '' };
+        }
+      }
+    } catch (_) { /* falls through to error */ }
+    if (!info) return NextResponse.json({ error: 'Could not verify your Google sign-in. Please try again.' }, { status: 401 });
+    const token = signSession({ email: info.email, name: info.name, exp: Date.now() + SESSION_TTL_MS });
+    return NextResponse.json({ email: info.email, name: info.name }, { headers: { 'Set-Cookie': sessionCookie(token) } });
+  }
+
   if (action === 'logout') {
     return NextResponse.json({ ok: true }, { headers: { 'Set-Cookie': 'applicant_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax' } });
   }

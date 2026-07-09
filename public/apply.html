@@ -88,11 +88,15 @@
     <!-- SIGN IN -->
     <div class="card" id="signin-card">
       <h2>Sign in to apply</h2>
-      <p class="sub">Use your email to start or continue an application. You can submit and track applications from here.</p>
+      <p class="sub">Sign in to submit and track your applications.</p>
+      <div id="gwrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:6px">
+        <div id="gbtn"></div>
+        <div class="note">Uses the Google account you're already signed into.</div>
+        <div class="divider">or use your email</div>
+      </div>
       <div class="field"><label>Full name</label><input id="li-name" placeholder="Your name" /></div>
       <div class="field"><label>Email address</label><input id="li-email" type="email" placeholder="you@example.com" /></div>
-      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Continue</button>
-      <div class="google-soon"><span>🔒</span> Google sign-in — coming soon</div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Continue with email</button>
       <div class="divider">or</div>
       <p class="note" style="text-align:center">Just want to check a status? Use <a href="#" onclick="showTrackOnly();return false;">Track an application</a> below.</p>
     </div>
@@ -186,7 +190,33 @@ async function boot(){
   fillSelect('f-class', CFG.classes, true);
   fillSelect('f-category', CFG.categories, true);
   const me = await api('me');
-  if (me.authed) enterApp(me); else showSignedOut();
+  if (me.authed) enterApp(me); else { showSignedOut(); initGoogle(); }
+}
+
+// Google Identity Services — shows the "Sign in with Google" account picker for
+// accounts the user is already logged into. Only activates if a Client ID is
+// configured (GOOGLE_CLIENT_ID); otherwise the email form is used.
+async function initGoogle(){
+  let cfg; try { cfg = await api('googleConfig'); } catch { return; }
+  if (!cfg || !cfg.clientId) return;
+  try {
+    await new Promise((res, rej) => {
+      if (window.google && window.google.accounts) return res();
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client'; s.async = true; s.defer = true;
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    });
+    window.google.accounts.id.initialize({ client_id: cfg.clientId, callback: onGoogleCredential });
+    window.google.accounts.id.renderButton(document.getElementById('gbtn'), { theme:'outline', size:'large', width:280, text:'continue_with' });
+    window.google.accounts.id.prompt(); // one-tap for already-signed-in users
+    document.getElementById('gwrap').classList.remove('hidden');
+  } catch (e) { /* leave email login */ }
+}
+async function onGoogleCredential(resp){
+  if (!resp || !resp.credential) return;
+  const r = await api('googleLogin', { credential: resp.credential });
+  if (r.error) return msg(r.error);
+  enterApp({ email:r.email, name:r.name });
 }
 function fillSelect(id, arr, placeholder){
   const el = document.getElementById(id); if(!el) return;
