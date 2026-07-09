@@ -1,2 +1,3 @@
 import { redirect } from 'next/navigation';
-export default function Home() { redirect('/app.html'); }
+// Public front door → applicant portal. Staff admin is at /app.html.
+export default function Home() { redirect('/apply.html'); }
