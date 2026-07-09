@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CCPC Admission — Apply</title>
+<style>
+  :root{
+    --navy:#0f2c4d; --navy-2:#173e69; --ink:#12202f; --muted:#5b6b7d;
+    --line:#e2e8f0; --paper:#f3f6fa; --surface:#ffffff;
+    --accent:#0f8a6d; --accent-ink:#0a6b54; --accent-soft:#e2f5ef;
+    --gold:#c9922b; --danger:#c0392b; --danger-soft:#fdecea; --ok:#0f8a6d; --ok-soft:#e2f5ef;
+    --shadow:0 1px 2px rgba(15,44,77,.06), 0 10px 30px rgba(15,44,77,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5}
+  .top{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;padding:16px 20px;display:flex;align-items:center;gap:14px}
+  .top .logo{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.15);display:grid;place-items:center;font-size:20px;flex-shrink:0}
+  .top h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.01em}
+  .top p{font-size:12px;margin:2px 0 0;opacity:.8}
+  .top .who{margin-left:auto;font-size:12px;text-align:right}
+  .top .who b{display:block;font-size:13px}
+  .top button{margin-left:12px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:9px;padding:7px 12px;font-weight:700;font-size:12px;cursor:pointer}
+  .wrap{max-width:860px;margin:0 auto;padding:22px 16px 80px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:22px;margin-bottom:18px}
+  .card h2{font-size:18px;margin:0 0 4px;color:var(--navy)}
+  .card .sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+  input,select,textarea{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;background:var(--surface);color:var(--ink);font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy-2);box-shadow:0 0 0 3px rgba(23,62,105,.12)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid .full{grid-column:1/-1}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+  .field{margin-bottom:14px}
+  .btn{border:none;border-radius:11px;padding:13px 22px;font-weight:800;font-size:14px;cursor:pointer}
+  .btn-primary{background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff}
+  .btn-accent{background:var(--accent);color:#fff}
+  .btn-ghost{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .note{font-size:12px;color:var(--muted)}
+  .msg{padding:11px 14px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px}
+  .msg.err{background:var(--danger-soft);color:var(--danger)}
+  .msg.ok{background:var(--ok-soft);color:var(--accent-ink)}
+  .hidden{display:none}
+  .google-soon{display:flex;align-items:center;gap:10px;justify-content:center;border:1px dashed var(--line);border-radius:11px;padding:12px;color:var(--muted);font-size:13px;font-weight:600;margin-top:12px}
+  .divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:16px 0}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* success ticket */
+  .ticket{border:2px solid var(--accent);border-radius:16px;overflow:hidden}
+  .ticket .head{background:var(--accent-soft);padding:16px 20px;color:var(--accent-ink);font-weight:800}
+  .ticket .nums{display:grid;grid-template-columns:1fr 1fr;gap:0}
+  .ticket .num{padding:20px;text-align:center}
+  .ticket .num + .num{border-left:1px dashed var(--line)}
+  .ticket .num .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}
+  .ticket .num .val{font-size:26px;font-weight:900;color:var(--navy);margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .ticket .foot{padding:12px 20px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;padding:9px 10px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .mono{font-family:ui-monospace,"Cascadia Code",Menlo,monospace;font-weight:700}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}
+  .pill.Pending{background:#fff4e0;color:#a2711a}
+  .pill.Admitted{background:var(--ok-soft);color:var(--accent-ink)}
+  .pill.Rejected{background:var(--danger-soft);color:var(--danger)}
+  .pill.Called{background:#e8f0fb;color:#1e4f8a}
+  .tablescroll{overflow-x:auto}
+  .tabbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .tabbar button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;color:var(--ink)}
+  .tabbar button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="logo">🎓</div>
+    <div>
+      <h1>CCPC Admission Portal</h1>
+      <p>Apply online &amp; track your application</p>
+    </div>
+    <div class="who" id="who"></div>
+  </div>
+
+  <div class="wrap">
+    <div id="msg-host"></div>
+
+    <!-- SIGN IN -->
+    <div class="card" id="signin-card">
+      <h2>Sign in to apply</h2>
+      <p class="sub">Use your email to start or continue an application. You can submit and track applications from here.</p>
+      <div class="field"><label>Full name</label><input id="li-name" placeholder="Your name" /></div>
+      <div class="field"><label>Email address</label><input id="li-email" type="email" placeholder="you@example.com" /></div>
+      <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Continue</button>
+      <div class="google-soon"><span>🔒</span> Google sign-in — coming soon</div>
+      <div class="divider">or</div>
+      <p class="note" style="text-align:center">Just want to check a status? Use <a href="#" onclick="showTrackOnly();return false;">Track an application</a> below.</p>
+    </div>
+
+    <!-- APP (after sign in) -->
+    <div id="app" class="hidden">
+      <div class="tabbar">
+        <button id="tab-new" class="on" onclick="showTab('new')">New application</button>
+        <button id="tab-mine" onclick="showTab('mine')">My applications</button>
+        <button id="tab-track" onclick="showTab('track')">Track</button>
+      </div>
+
+      <!-- NEW APPLICATION -->
+      <div id="pane-new" class="card">
+        <h2>New application</h2>
+        <p class="sub">Fill in the details. You'll get a <b>tracking number</b> and an <b>index number</b> as soon as you submit.</p>
+        <div id="submit-result"></div>
+        <form id="app-form" onsubmit="submitApp(event)">
+          <div class="grid">
+            <div><label>Session</label><select id="f-session" required></select></div>
+            <div><label>Class applying for</label><select id="f-class" required></select></div>
+            <div><label>Category</label><select id="f-category"></select></div>
+            <div><label>Version</label><select id="f-version"><option value="Bangla">Bangla</option><option value="English">English</option></select></div>
+            <div class="full"><label>Applicant's name (English)</label><input id="f-name_english" required placeholder="As per birth certificate" /></div>
+            <div class="full"><label>Applicant's name (Bangla)</label><input id="f-name_bangla" placeholder="নাম" /></div>
+            <div><label>Date of birth</label><input id="f-date_of_birth" type="date" /></div>
+            <div><label>Gender</label><select id="f-gender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+            <div><label>Religion</label><input id="f-religion" /></div>
+            <div><label>Blood group</label><input id="f-blood_group" placeholder="e.g. O+" /></div>
+            <div class="full"><label>Present address</label><textarea id="f-present_address" rows="2"></textarea></div>
+            <div><label>Emergency contact</label><input id="f-emergency_contact" placeholder="Mobile number" /></div>
+            <div><label>Last institute</label><input id="f-last_institute" /></div>
+            <div><label>Father's name</label><input id="f-father_name" /></div>
+            <div><label>Father's contact</label><input id="f-father_contact" /></div>
+            <div><label>Mother's name</label><input id="f-mother_name" /></div>
+            <div><label>Mother's contact</label><input id="f-mother_contact" /></div>
+            <div><label>Guardian's name</label><input id="f-guardian_name" /></div>
+            <div><label>Guardian's contact</label><input id="f-guardian_contact" /></div>
+          </div>
+          <div class="row" style="margin-top:18px">
+            <button type="submit" class="btn btn-accent" id="submit-btn">Submit application</button>
+            <span class="note">Review carefully — each submission gets its own unique numbers.</span>
+          </div>
+        </form>
+      </div>
+
+      <!-- MY APPLICATIONS -->
+      <div id="pane-mine" class="card hidden">
+        <h2>My applications</h2>
+        <p class="sub">Every application you've submitted with this account.</p>
+        <div id="mine-body"><p class="note">Loading…</p></div>
+      </div>
+
+      <!-- TRACK -->
+      <div id="pane-track" class="card hidden">
+        <h2>Track an application</h2>
+        <p class="sub">Enter a tracking number to see its current status.</p>
+        <div class="row">
+          <input id="track-input" placeholder="e.g. 1A2B" style="max-width:220px" class="mono" />
+          <button class="btn btn-primary" onclick="doTrack()">Check status</button>
+        </div>
+        <div id="track-result" style="margin-top:16px"></div>
+      </div>
+    </div>
+
+    <!-- TRACK-ONLY (before sign in) -->
+    <div id="track-only" class="card hidden">
+      <h2>Track an application</h2>
+      <p class="sub">Enter your tracking number.</p>
+      <div class="row">
+        <input id="track-input2" placeholder="e.g. 1A2B" style="max-width:220px" class="mono" />
+        <button class="btn btn-primary" onclick="doTrack('2')">Check status</button>
+      </div>
+      <div id="track-result2" style="margin-top:16px"></div>
+      <p class="note" style="margin-top:16px"><a href="#" onclick="hideTrackOnly();return false;">← Back to sign in</a></p>
+    </div>
+  </div>
+
+<script>
+const api = async (action, payload={}) => {
+  const r = await fetch('/api/apply', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload}) });
+  return r.json();
+};
+function msg(text, kind='err'){ document.getElementById('msg-host').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : ''; if(text) setTimeout(()=>{const h=document.getElementById('msg-host'); if(h) h.innerHTML='';}, 6000); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let CFG = { classes:[], categories:[], sessions:[] };
+
+async function boot(){
+  CFG = await api('config');
+  fillSelect('f-session', CFG.sessions);
+  fillSelect('f-class', CFG.classes, true);
+  fillSelect('f-category', CFG.categories, true);
+  const me = await api('me');
+  if (me.authed) enterApp(me); else showSignedOut();
+}
+function fillSelect(id, arr, placeholder){
+  const el = document.getElementById(id); if(!el) return;
+  el.innerHTML = (placeholder?'<option value="">— select —</option>':'') + (arr||[]).map(v=>`<option>${esc(v)}</option>`).join('');
+}
+function showSignedOut(){ document.getElementById('signin-card').classList.remove('hidden'); document.getElementById('app').classList.add('hidden'); document.getElementById('who').innerHTML=''; }
+function enterApp(me){
+  document.getElementById('signin-card').classList.add('hidden');
+  document.getElementById('track-only').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('who').innerHTML = `<b>${esc(me.name||me.email)}</b><span style="opacity:.85">${esc(me.email)}</span> <button onclick="doLogout()">Sign out</button>`;
+  showTab('new');
+}
+async function doLogin(){
+  const name = document.getElementById('li-name').value.trim();
+  const email = document.getElementById('li-email').value.trim();
+  const r = await api('login', { email, name });
+  if (r.error) return msg(r.error);
+  enterApp({ email:r.email, name:r.name });
+}
+async function doLogout(){ await api('logout'); location.reload(); }
+
+function showTab(t){
+  ['new','mine','track'].forEach(x=>{
+    document.getElementById('pane-'+x).classList.toggle('hidden', x!==t);
+    document.getElementById('tab-'+x).classList.toggle('on', x===t);
+  });
+  if (t==='mine') loadMine();
+}
+function showTrackOnly(){ document.getElementById('signin-card').classList.add('hidden'); document.getElementById('track-only').classList.remove('hidden'); }
+function hideTrackOnly(){ document.getElementById('track-only').classList.add('hidden'); document.getElementById('signin-card').classList.remove('hidden'); }
+
+async function submitApp(e){
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
+  const ids = ['session','class','category','version','name_english','name_bangla','date_of_birth','gender','religion','blood_group','present_address','emergency_contact','last_institute','father_name','father_contact','mother_name','mother_contact','guardian_name','guardian_contact'];
+  const data = {};
+  ids.forEach(k=>{ const el=document.getElementById('f-'+k); if(el && el.value.trim()!=='') data[k]=el.value.trim(); });
+  const r = await api('submit', { data });
+  btn.disabled = false; btn.textContent = 'Submit application';
+  if (r.error) return msg(r.error);
+  document.getElementById('submit-result').innerHTML = `
+    <div class="ticket" style="margin-bottom:18px">
+      <div class="head">✓ Application submitted — save these numbers</div>
+      <div class="nums">
+        <div class="num"><div class="lbl">Tracking number</div><div class="val mono">${esc(r.tracking_id)}</div></div>
+        <div class="num"><div class="lbl">Index number</div><div class="val mono">${esc(r.index_id)}</div></div>
+      </div>
+      <div class="foot">Use the tracking number to check your status anytime. Your index number is your serial for this class.</div>
+    </div>`;
+  document.getElementById('app-form').reset();
+  fillSelect('f-session', CFG.sessions); fillSelect('f-class', CFG.classes, true); fillSelect('f-category', CFG.categories, true);
+  document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'center'});
+  msg('Application submitted successfully.', 'ok');
+}
+
+async function loadMine(){
+  const host = document.getElementById('mine-body');
+  host.innerHTML = '<p class="note">Loading…</p>';
+  const r = await api('myApplications');
+  const apps = r.applications || [];
+  if (!apps.length){ host.innerHTML = '<p class="note">No applications yet. Submit one from the “New application” tab.</p>'; return; }
+  host.innerHTML = `<div class="tablescroll"><table>
+    <thead><tr><th>Tracking</th><th>Index</th><th>Name</th><th>Class</th><th>Session</th><th>Status</th></tr></thead>
+    <tbody>${apps.map(a=>`<tr>
+      <td class="mono">${esc(a.tracking_id)}</td>
+      <td class="mono">${esc(a.index_id)}</td>
+      <td>${esc(a.name_english)}</td>
+      <td>${esc(a.class)}</td>
+      <td>${esc(a.session)}</td>
+      <td><span class="pill ${esc((a.status||'Pending').split(' ')[0])}">${esc(a.status||'Pending')}</span></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+
+async function doTrack(suffix=''){
+  const val = document.getElementById('track-input'+suffix).value.trim();
+  const host = document.getElementById('track-result'+suffix);
+  if (!val){ host.innerHTML=''; return; }
+  const r = await api('track', { tracking_id: val });
+  if (!r.found){ host.innerHTML = `<div class="msg err">No application found for that tracking number.</div>`; return; }
+  const a = r.application;
+  host.innerHTML = `<div class="card" style="box-shadow:none;margin:0">
+    <div class="row" style="justify-content:space-between"><div><b>${esc(a.name_english||'Applicant')}</b><div class="note">Class ${esc(a.class)} · Session ${esc(a.session)}</div></div>
+    <span class="pill ${esc((a.status||'Pending').split(' ')[0])}">${esc(a.status||'Pending')}</span></div>
+    <div class="row" style="margin-top:12px;gap:24px">
+      <div><div class="note">Tracking</div><div class="mono" style="font-size:16px;font-weight:800">${esc(a.tracking_id)}</div></div>
+      <div><div class="note">Index</div><div class="mono" style="font-size:16px;font-weight:800">${esc(a.index_id)}</div></div>
+    </div></div>`;
+}
+
+boot();
+</script>
+</body>
+</html>
