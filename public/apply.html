@@ -124,9 +124,9 @@
           <div class="grid">
             <div class="sec full">Circular</div>
             <div><label>Session</label><select id="f-session" required></select></div>
-            <div><label>Class applying for</label><select id="f-class" required></select></div>
-            <div><label>Version</label><select id="f-version"><option value="Bangla">Bangla</option><option value="English">English</option></select></div>
-            <div><label>Category</label><select id="f-category"></select></div>
+            <div><label>Class applying for</label><select id="f-class" required onchange="onClassChange()"></select></div>
+            <div><label>Version</label><select id="f-version" required></select></div>
+            <div><label>Category</label><select id="f-category" required></select></div>
             <div><label>Quota</label><select id="f-quota"><option value="No">No</option><option value="Yes">Yes</option></select></div>
 
             <div class="sec full">Applicant's Information</div>
@@ -227,15 +227,32 @@ const api = async (action, payload={}) => {
 };
 function msg(text, kind='err'){ document.getElementById('msg-host').innerHTML = text ? `<div class="msg ${kind}">${text}</div>` : ''; if(text) setTimeout(()=>{const h=document.getElementById('msg-host'); if(h) h.innerHTML='';}, 6000); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-let CFG = { classes:[], categories:[], sessions:[] };
+let CFG = { classes:[], categories:[], sessions:[], byClass:{} };
 
 async function boot(){
   CFG = await api('config');
   fillSelect('f-session', CFG.sessions);
   fillSelect('f-class', CFG.classes, true);
-  fillSelect('f-category', CFG.categories, true);
+  onClassChange(); // reset version/category to "pick a class first"
   const me = await api('me');
   if (me.authed) enterApp(me); else { showSignedOut(); initGoogle(); }
+}
+
+// Version + category are constrained by the class the circular opened.
+function onClassChange(){
+  const cls = document.getElementById('f-class').value;
+  const info = (CFG.byClass && CFG.byClass[cls]) || null;
+  const vEl = document.getElementById('f-version');
+  const cEl = document.getElementById('f-category');
+  if (!cls || !info) {
+    if (vEl) vEl.innerHTML = '<option value="">— pick a class first —</option>';
+    if (cEl) cEl.innerHTML = '<option value="">— pick a class first —</option>';
+    return;
+  }
+  const versions   = (info.versions   && info.versions.length)   ? info.versions   : ['Bangla','English'];
+  const categories = (info.categories && info.categories.length) ? info.categories : (CFG.categories||[]);
+  if (vEl) vEl.innerHTML = versions.map(v=>`<option>${esc(v)}</option>`).join('');
+  if (cEl) cEl.innerHTML = '<option value="">— select —</option>' + categories.map(v=>`<option>${esc(v)}</option>`).join('');
 }
 
 // Google Identity Services — shows the "Sign in with Google" account picker for
@@ -359,7 +376,7 @@ async function submitApp(e){
   document.getElementById('app-form').reset();
   Object.keys(photoUrls).forEach(f=>delete photoUrls[f]);
   ['student_photo','father_photo','mother_photo','guardian_photo'].forEach(f=>{ const im=document.getElementById('ph-'+f+'-img'); if(im){im.src='';im.style.display='none';} const st=document.getElementById('ph-'+f+'-status'); if(st)st.textContent=''; });
-  fillSelect('f-session', CFG.sessions); fillSelect('f-class', CFG.classes, true); fillSelect('f-category', CFG.categories, true);
+  fillSelect('f-session', CFG.sessions); fillSelect('f-class', CFG.classes, true); onClassChange();
   document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'center'});
   msg('Application submitted successfully.', 'ok');
 }

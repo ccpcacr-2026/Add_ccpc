@@ -116,15 +116,40 @@ export async function POST(req) {
   const { action, payload = {} } = body;
 
   // ── Config: choices for the application form ────────────────────────────────
+  // The circular (add-class model) decides which classes are OPEN and, per class,
+  // which versions/categories are allowed. Applicants can only pick open combos.
+  // If no circular classes are configured yet, fall back to every defined class.
   if (action === 'config') {
-    const rows = await sb(`admission_settings?key=eq.index_settings`);
-    const idx = (rows && !rows.error && rows[0]) ? rows[0].value : {};
-    const classes = Object.keys(idx.classCodes || {});
-    const categories = Object.keys(idx.categoryCodes || {});
+    const rows = await sb(`admission_settings?key=in.(index_settings,circular_settings)`);
+    const arr = (rows && !rows.error && Array.isArray(rows)) ? rows : [];
+    const idx  = (arr.find(r => r.key === 'index_settings')    || {}).value || {};
+    const circ = (arr.find(r => r.key === 'circular_settings') || {}).value || {};
+    const allClasses    = Object.keys(idx.classCodes || {});
+    const allCategories = Object.keys(idx.categoryCodes || {});
+    const openClasses = Array.isArray(circ.classes) ? circ.classes.filter(c => c && c.class) : [];
+    let classes, byClass = {};
+    if (openClasses.length) {
+      classes = openClasses.map(c => c.class);
+      openClasses.forEach(c => {
+        byClass[c.class] = {
+          versions:   (Array.isArray(c.versions)   && c.versions.length)   ? c.versions   : ['Bangla', 'English'],
+          categories: (Array.isArray(c.categories) && c.categories.length) ? c.categories : allCategories,
+          seats: c.seats || '',
+        };
+      });
+    } else {
+      classes = allClasses;
+      allClasses.forEach(c => { byClass[c] = { versions: ['Bangla', 'English'], categories: allCategories, seats: '' }; });
+    }
     const year = new Date().getFullYear();
     return NextResponse.json({
-      classes, categories,
+      classes, byClass,
+      categories: allCategories,
       sessions: [String(year), String(year + 1)],
+      open: openClasses.length > 0,
+      circularTitle: circ.title || '',
+      circularSession: circ.session || '',
+      startDate: circ.startDate || '', endDate: circ.endDate || '',
     });
   }
 

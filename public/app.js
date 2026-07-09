@@ -1268,7 +1268,9 @@ const DEFAULT_CIRCULAR={
     {id:'aof_seats', label:'Seats',  type:'number'},
     {id:'aof_note',  label:'Note',   type:'text'},
   ],
-  entries:[]
+  entries:[],
+  // add-class model: which class+version+category combos this circular is open for
+  classes:[]   // [{class, versions:[], categories:[], seats}]
 };
 let currentCircular=null;
 
@@ -1308,10 +1310,9 @@ async function loadCircular(){
   if(!Array.isArray(currentCircular.dimensions))currentCircular.dimensions=DEFAULT_CIRCULAR.dimensions.map(function(d){return Object.assign({},d);});
   if(!Array.isArray(currentCircular.entries))currentCircular.entries=[];
   if(!Array.isArray(currentCircular.appOptionFields))currentCircular.appOptionFields=DEFAULT_CIRCULAR.appOptionFields.map(function(f){return Object.assign({},f);});
+  if(!Array.isArray(currentCircular.classes))currentCircular.classes=[];
   populateCircularInfo();
-  renderCircularDimensions();
-  renderCircOptFields();
-  renderCircularEntries();
+  renderCircularClasses();
 }
 function populateCircularInfo(){
   const c=currentCircular;
@@ -1348,7 +1349,88 @@ async function saveCircular(){
   populateIndexSettings(currentIndexSettings);
 }
 
-/* ── Dimensions ── */
+/* ── Classes (add-class model) ──────────────────────
+   A circular is open for a small set of classes (max ~3-4).
+   Admin picks classes from the Index-tab class codes, then ticks
+   each class's version(s) and category(ies) and sets seats.
+   Applicants can only apply to combos opened here.            */
+const CIRC_VERSIONS=['Bangla','English'];
+function circAllClasses(){return Object.keys((currentIndexSettings&&currentIndexSettings.classCodes)||{});}
+function circAllCategories(){return Object.keys((currentIndexSettings&&currentIndexSettings.categoryCodes)||{});}
+function circAvailClasses(){
+  const used=new Set((currentCircular.classes||[]).map(function(c){return c.class;}));
+  return circAllClasses().filter(function(c){return !used.has(c);});
+}
+function circFindClass(cls){return (currentCircular.classes||[]).find(function(c){return c.class===cls;});}
+function renderCircularClasses(){
+  const c=currentCircular;if(!c)return;
+  if(!Array.isArray(c.classes))c.classes=[];
+  const sel=document.getElementById('circ-add-class-sel');
+  if(sel){
+    const avail=circAvailClasses();
+    sel.innerHTML=avail.length
+      ? avail.map(function(x){return '<option value="'+circEscH(x)+'">'+circEscH(x)+'</option>';}).join('')
+      : '<option value="">— all classes added —</option>';
+    sel.disabled=!avail.length;
+  }
+  const cnt=document.getElementById('circ-class-count');if(cnt)cnt.textContent='('+c.classes.length+')';
+  const host=document.getElementById('circ-classes');if(!host)return;
+  if(!c.classes.length){
+    host.innerHTML='<div style="padding:18px;text-align:center;color:#94a3b8;font-size:11px">No classes yet. Pick a class above and click <b>+ Add class</b>.<br>'+
+      (circAllClasses().length?'':'<span style="color:#dc2626">Define class codes in the <b>Index</b> tab first.</span>')+'</div>';
+    return;
+  }
+  const cats=circAllCategories();
+  host.innerHTML=c.classes.map(function(cl){
+    const vChecks=CIRC_VERSIONS.map(function(v){
+      return '<label style="font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer">'+
+        '<input type="checkbox" '+((cl.versions||[]).includes(v)?'checked':'')+' onchange="circToggleVersion(\''+circEscH(cl.class)+'\',\''+v+'\')"> '+v+'</label>';
+    }).join('');
+    const cChecks=cats.length
+      ? cats.map(function(ct){
+          return '<label style="font-size:11px;display:inline-flex;align-items:center;gap:4px;cursor:pointer">'+
+            '<input type="checkbox" '+((cl.categories||[]).includes(ct)?'checked':'')+' onchange="circToggleCategory(\''+circEscH(cl.class)+'\',\''+circEscH(ct)+'\')"> '+circEscH(ct)+'</label>';
+        }).join('')
+      : '<span style="color:#94a3b8;font-size:10px">Add categories in the Index tab first</span>';
+    return '<div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#fff">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
+        '<b style="font-size:13px;color:#0f172a">'+circEscH(cl.class)+'</b>'+
+        '<button class="nav-btn" onclick="circRemoveClass(\''+circEscH(cl.class)+'\')" style="font-size:9px;padding:2px 8px;color:#dc2626">✕ Remove</button>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:5px"><span style="font-size:10px;font-weight:700;color:#64748b;min-width:64px">Version:</span>'+vChecks+'</div>'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px"><span style="font-size:10px;font-weight:700;color:#64748b;min-width:64px">Category:</span>'+cChecks+'</div>'+
+      '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px"><span style="font-size:10px;font-weight:700;color:#64748b;min-width:64px">Seats:</span>'+
+        '<input class="finput finput-sm" style="width:100px" value="'+circEscH(cl.seats||'')+'" oninput="circSetSeats(\''+circEscH(cl.class)+'\',this.value)" placeholder="e.g. 50"></div>'+
+    '</div>';
+  }).join('');
+}
+function circAddClass(){
+  const sel=document.getElementById('circ-add-class-sel');
+  if(!sel||!sel.value){toast('No class to add — define class codes in the Index tab','warn');return;}
+  currentCircular.classes=currentCircular.classes||[];
+  if(currentCircular.classes.some(function(c){return c.class===sel.value;}))return;
+  currentCircular.classes.push({class:sel.value,versions:['Bangla'],categories:[],seats:''});
+  renderCircularClasses();
+}
+function circRemoveClass(cls){
+  currentCircular.classes=(currentCircular.classes||[]).filter(function(c){return c.class!==cls;});
+  renderCircularClasses();
+}
+function circToggleVersion(cls,v){
+  const c=circFindClass(cls);if(!c)return;
+  c.versions=c.versions||[];
+  const i=c.versions.indexOf(v);
+  if(i<0)c.versions.push(v);else c.versions.splice(i,1);
+}
+function circToggleCategory(cls,ct){
+  const c=circFindClass(cls);if(!c)return;
+  c.categories=c.categories||[];
+  const i=c.categories.indexOf(ct);
+  if(i<0)c.categories.push(ct);else c.categories.splice(i,1);
+}
+function circSetSeats(cls,val){const c=circFindClass(cls);if(c)c.seats=val;}
+
+/* ── Dimensions (legacy, unused by the add-class UI) ── */
 function renderCircularDimensions(){
   const c=currentCircular;if(!c)return;
   const dims=c.dimensions||[];

@@ -851,38 +851,18 @@
             </div>
           </div>
 
-          <!-- ── MIDDLE STRIP: Opt Fields ─────────────── -->
-          <div class="circ-opt-strip">
-            <span class="sec-lbl" style="white-space:nowrap;align-self:center">Option Fields:</span>
-            <div id="circ-opt-fields" style="flex:1;min-width:0"></div>
-            <button class="nav-btn" onclick="circAddOptField()" style="font-size:9px;padding:3px 9px;flex-shrink:0">+ Field</button>
+          <!-- ── CLASSES in this circular (add-class model) ─────────────── -->
+          <div style="border:1px solid #e2e8f0;border-radius:12px;background:#f8fafc;padding:12px;flex:1;display:flex;flex-direction:column;min-height:0">
+            <div class="circ-panel-hdr" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span class="sec-lbl">Classes in this circular <span id="circ-class-count" style="color:#94a3b8;font-weight:600"></span></span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <select id="circ-add-class-sel" class="finput finput-sm" style="width:160px"></select>
+                <button class="nav-btn nav-btn-primary" onclick="circAddClass()" style="font-size:10px;padding:4px 12px;white-space:nowrap">+ Add class</button>
+              </div>
+            </div>
+            <p style="font-size:10px;color:#94a3b8;margin:0 0 8px">Add each class the circular is open for, then tick its version(s) and category(ies). Applicants can only apply to what you open here.</p>
+            <div id="circ-classes" style="overflow:auto;flex:1"></div>
           </div>
-
-          <!-- ── MAIN PANEL: Dims (left) + Entries (right) -->
-          <div class="circ-main-panel">
-
-            <!-- Left: Dimensions -->
-            <div class="circ-left-panel">
-              <div class="circ-panel-hdr">
-                <span class="sec-lbl">Dimensions <span id="circ-dim-count" style="color:#94a3b8;font-weight:600"></span></span>
-                <button class="nav-btn" onclick="circAddDimension()" style="padding:2px 8px;font-size:9px">+ Dim</button>
-              </div>
-              <div id="circ-dims" style="overflow-y:auto;flex:1"></div>
-            </div>
-
-            <!-- Right: Entries -->
-            <div class="circ-right-panel">
-              <div class="circ-panel-hdr">
-                <span class="sec-lbl">Circular Entries <span id="circ-ent-count" style="color:#94a3b8;font-weight:600"></span></span>
-                <div style="display:flex;gap:5px">
-                  <button class="nav-btn" onclick="circGenerateCombinations()" style="font-size:9px;padding:2px 8px" title="Auto-create one entry per value combination">⚙ Generate</button>
-                  <button class="nav-btn" onclick="circAddEntry()" style="font-size:9px;padding:2px 8px">+ Entry</button>
-                </div>
-              </div>
-              <div id="circ-entries" style="overflow:auto;flex:1"></div>
-            </div>
-
-          </div><!-- /circ-main-panel -->
 
         </div><!-- /circ-layout -->
       </div>
