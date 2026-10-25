@@ -230,6 +230,42 @@ export async function POST(req) {
     return NextResponse.json({ success: true });
   }
 
+  // ── Bulk status update (multi-select on the Applications table) ──────────
+  // One PATCH with an id=in.(...) filter instead of N sequential
+  // updateStatus calls. Capped defensively — in.() is a query-string
+  // filter, not a request body, so a very large array risks hitting URL-
+  // length limits; this app operates at a staff/dozens-of-rows scale, so
+  // the cap is just a guard rail, not a real constraint.
+  if (action === 'bulkUpdateStatus') {
+    const ids = Array.isArray(payload.ids) ? payload.ids.map(n => parseInt(n, 10)).filter(Boolean) : [];
+    if (!ids.length) return NextResponse.json({ error: 'No applications selected.' });
+    if (ids.length > 300) return NextResponse.json({ error: 'Select 300 or fewer applications at a time.' });
+    if (!payload.status) return NextResponse.json({ error: 'Pick a status to apply.' });
+    const res = await sb(`admission_applications?id=in.(${ids.join(',')})`, 'PATCH',
+      { status: payload.status, updated_at: new Date().toISOString() });
+    if (res?.error) return NextResponse.json({ error: res.error });
+    return NextResponse.json({ success: true, count: ids.length });
+  }
+
+  // ── Look up by scanned code (QR on an admit card/application) ────────────
+  // The QR's content template is admin-configurable (defaults to
+  // {tracking_id} but can be repointed at any field via the form
+  // designer) — try tracking_id first, then index_id, so a scan still
+  // resolves if the template was changed, instead of silently finding
+  // nothing.
+  if (action === 'lookupByCode') {
+    const code = String(payload.code || '').trim();
+    if (!code) return NextResponse.json({ error: 'No code scanned.' });
+    const cols = 'id,tracking_id,index_id,name_english,name_bangla,class,category,version,session,status,student_photo';
+    let rows = await sb(`admission_applications?tracking_id=eq.${encodeURIComponent(code)}&select=${cols}`);
+    if (!Array.isArray(rows) || !rows.length) {
+      rows = await sb(`admission_applications?index_id=eq.${encodeURIComponent(code)}&select=${cols}`);
+    }
+    const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!app) return NextResponse.json({ error: `No application matches "${code}".` });
+    return NextResponse.json({ application: app });
+  }
+
   // ── Stats ────────────────────────────────────────────────────────────────
   if (action === 'getStats') {
     const q = payload.session

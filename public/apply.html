@@ -117,9 +117,22 @@
       <div id="gwrap" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:6px">
         <div id="gbtn"></div>
         <div class="note">Uses the Google account you're already signed into.</div>
-        <div class="divider">or use your email</div>
+        <div class="divider">or use your phone or email</div>
       </div>
       <div class="field"><label>Full name</label><input id="li-name" placeholder="Your name" /></div>
+
+      <div id="phone-step1">
+        <div class="field"><label>Mobile number</label><input id="li-phone" type="tel" placeholder="01XXXXXXXXX" /></div>
+        <button class="btn btn-primary" style="width:100%" onclick="requestPhoneCode()" id="send-code-btn">Send code</button>
+      </div>
+      <div id="phone-step2" class="hidden">
+        <div class="field"><label>Verification code sent to <span id="otp-phone-display"></span></label><input id="li-otp" inputmode="numeric" maxlength="6" placeholder="6-digit code" /></div>
+        <div class="note" id="otp-devcode"></div>
+        <button class="btn btn-primary" style="width:100%" onclick="verifyPhoneCode()" id="verify-code-btn">Verify &amp; continue</button>
+        <p class="note" style="text-align:center"><a href="#" onclick="resetPhoneStep();return false;">Use a different number</a></p>
+      </div>
+
+      <div class="divider">or use your email</div>
       <div class="field"><label>Email address</label><input id="li-email" type="email" placeholder="you@example.com" /></div>
       <button class="btn btn-primary" style="width:100%" onclick="doLogin()">Continue with email</button>
       <div class="divider">or</div>
@@ -344,7 +357,8 @@ function enterApp(me){
   document.getElementById('signin-card').classList.add('hidden');
   document.getElementById('track-only').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
-  document.getElementById('who').innerHTML = `<b>${esc(me.name||me.email)}</b><span style="opacity:.85">${esc(me.email)}</span> <button onclick="doLogout()">Sign out</button>`;
+  const contact = me.email || me.phone || '';
+  document.getElementById('who').innerHTML = `<b>${esc(me.name||contact)}</b><span style="opacity:.85">${esc(contact)}</span> <button onclick="doLogout()">Sign out</button>`;
   gotoStep(1);
   // Returning from the payment gateway? Surface the outcome and land on "My applications".
   const payResult = new URLSearchParams(location.search).get('pay');
@@ -366,6 +380,43 @@ async function doLogin(){
   enterApp({ email:r.email, name:r.name });
 }
 async function doLogout(){ await api('logout'); location.reload(); }
+
+// ── Phone + OTP sign-in ──────────────────────────────────────────────────
+let _otpPhone = '';
+async function requestPhoneCode(){
+  const phone = document.getElementById('li-phone').value.trim();
+  if (!phone) return msg('Enter your mobile number.');
+  const btn = document.getElementById('send-code-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  const r = await api('requestOtp', { phone });
+  btn.disabled = false; btn.textContent = 'Send code';
+  if (r.error) return msg(r.error);
+  _otpPhone = phone;
+  document.getElementById('otp-phone-display').textContent = phone;
+  document.getElementById('otp-devcode').textContent = r.devCode
+    ? `Test code (SMS not configured yet): ${r.devCode}` : '';
+  document.getElementById('phone-step1').classList.add('hidden');
+  document.getElementById('phone-step2').classList.remove('hidden');
+  document.getElementById('li-otp').focus();
+}
+async function verifyPhoneCode(){
+  const code = document.getElementById('li-otp').value.trim();
+  const name = document.getElementById('li-name').value.trim();
+  if (!code) return msg('Enter the code you received.');
+  const btn = document.getElementById('verify-code-btn');
+  btn.disabled = true; btn.textContent = 'Verifying…';
+  const r = await api('verifyOtp', { phone: _otpPhone, code, name });
+  btn.disabled = false; btn.textContent = 'Verify & continue';
+  if (r.error) return msg(r.error);
+  enterApp({ phone:r.phone, name:r.name });
+}
+function resetPhoneStep(){
+  _otpPhone = '';
+  document.getElementById('li-otp').value = '';
+  document.getElementById('otp-devcode').textContent = '';
+  document.getElementById('phone-step2').classList.add('hidden');
+  document.getElementById('phone-step1').classList.remove('hidden');
+}
 
 function showTab(t){
   ['new','mine','track'].forEach(x=>{

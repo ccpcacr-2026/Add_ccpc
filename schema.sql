@@ -48,7 +48,12 @@ INSERT INTO admission_settings (key, value) VALUES
   "categoryCodes": {"Army":"A","Civil":"C","Defence":"D","CCPC Teacher":"T","Staff":"S"}
 }'),
 ('form_settings',       '{}'),
-('admit_card_settings', '{}')
+('admit_card_settings', '{}'),
+-- {method, url, headers, bodyTemplate} for sending OTP SMS — provider-
+-- agnostic on purpose; stays empty until the admin configures a real SMS
+-- API in the SMS settings tab. While empty, requestOtp returns the code
+-- directly in its response instead of sending it (dev/testing fallback).
+('sms_settings',        '{}')
 ON CONFLICT (key) DO NOTHING;
 
 -- ── Applications ──────────────────────────────────────────────────────────
@@ -62,6 +67,28 @@ CREATE TABLE IF NOT EXISTS admission_applications (
   version       TEXT,
   quota         TEXT DEFAULT 'No',
   status        TEXT DEFAULT 'Pending',
+  stage         TEXT DEFAULT 'initiated',
+  source        TEXT DEFAULT 'admin',
+
+  -- Applicant identity: EITHER email/Google OR phone+OTP, never both at
+  -- once (see migration_phone_otp.sql) — no uniqueness constraint on
+  -- either, consistent with one applicant being able to hold several
+  -- applications (one per class/session/category/version combo).
+  applicant_email   TEXT,
+  applicant_phone   TEXT,
+
+  -- Application-fee payment (see admission_payments below for the actual
+  -- gateway/manual transaction log; these are just the application's own
+  -- current payment state).
+  payment_status    TEXT DEFAULT 'none',
+  payment_method    TEXT,
+  payment_ref       TEXT,
+  payment_amount    NUMERIC,
+  paid_at           TIMESTAMPTZ,
+
+  -- Admit card issuance
+  room_no           TEXT,
+  admit_issued_at   TIMESTAMPTZ,
 
   name_english      TEXT,
   name_bangla       TEXT,
@@ -120,6 +147,53 @@ CREATE TABLE IF NOT EXISTS admission_applications (
 -- Run this if table already exists (adds columns to existing rows)
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS academic_records JSONB DEFAULT '[]';
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS siblings         JSONB DEFAULT '[]';
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS stage            TEXT DEFAULT 'initiated';
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS source           TEXT DEFAULT 'admin';
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS applicant_email  TEXT;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS applicant_phone  TEXT;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS payment_status   TEXT DEFAULT 'none';
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS payment_method   TEXT;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS payment_ref      TEXT;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS payment_amount   NUMERIC;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS paid_at          TIMESTAMPTZ;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS room_no          TEXT;
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS admit_issued_at  TIMESTAMPTZ;
+
+-- ── Payments (gateway + manual transaction log, one row per attempt) ───────
+CREATE TABLE IF NOT EXISTS admission_payments (
+  id              BIGSERIAL PRIMARY KEY,
+  application_id  BIGINT      NOT NULL,
+  tran_id         TEXT        NOT NULL UNIQUE,
+  gateway         TEXT        NOT NULL,
+  amount          NUMERIC     NOT NULL,
+  currency        TEXT        NOT NULL DEFAULT 'BDT',
+  status          TEXT        NOT NULL DEFAULT 'initiated',
+  val_id          TEXT,
+  payer_ref       TEXT,
+  raw             JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS admission_payments_application_idx ON admission_payments (application_id);
+ALTER TABLE admission_payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Full access payments" ON admission_payments;
+CREATE POLICY "Full access payments" ON admission_payments FOR ALL USING (true);
+
+-- ── OTP codes (phone sign-in) ────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS admission_otps (
+  id          BIGSERIAL PRIMARY KEY,
+  phone       TEXT        NOT NULL,
+  code_hash   TEXT        NOT NULL,
+  purpose     TEXT        NOT NULL DEFAULT 'login',
+  attempts    INT         NOT NULL DEFAULT 0,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  verified_at TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS admission_otps_phone_created_idx ON admission_otps (phone, created_at DESC);
+ALTER TABLE admission_otps ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Full access otps" ON admission_otps;
+CREATE POLICY "Full access otps" ON admission_otps FOR ALL USING (true);
 
 -- RLS
 ALTER TABLE admission_applications ENABLE ROW LEVEL SECURITY;

@@ -150,6 +150,9 @@ function showAdminTab(id,btn){
   if(id==='at-counters')loadCounters();
   if(id==='at-circular')loadCircular();
   if(id==='at-payments')loadPaymentsTab();
+  if(id==='at-sms')loadSmsTab();
+  if(id==='at-scan'){/* camera starts on demand via Start camera */}
+  else if(typeof stopScan==='function')stopScan();
 }
 function setTopbarBtn(dashboard,admin,newApp){
   const d=document.getElementById('btn-dashboard'),a=document.getElementById('btn-admin'),n=document.getElementById('btn-new');
@@ -177,12 +180,15 @@ const STATUS_COLORS={
   'Pending':'bg-amber-100 text-amber-700','Called for Test':'bg-blue-100 text-blue-700',
   'Admitted':'bg-emerald-100 text-emerald-700','Rejected':'bg-red-100 text-red-700'
 };
+let _selectedIds=new Set();
 function renderTable(apps){
   const tbody=document.getElementById('app-table-body');
-  if(!apps.length){tbody.innerHTML='<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm">No applications found.</td></tr>';document.getElementById('app-count').textContent='';return;}
+  _selectedIds=new Set([..._selectedIds].filter(id=>apps.some(a=>a.id===id)));
+  if(!apps.length){tbody.innerHTML='<tr><td colspan="8" class="px-4 py-10 text-center text-slate-400 text-sm">No applications found.</td></tr>';document.getElementById('app-count').textContent='';renderBulkBar();return;}
   document.getElementById('app-count').textContent=`${apps.length} record${apps.length>1?'s':''}`;
   tbody.innerHTML=apps.map(a=>`
     <tr class="border-t border-slate-50 hover:bg-slate-50/80 transition-all cursor-pointer" onclick="loadForm(${a.id})">
+      <td class="px-4 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="row-select" data-id="${a.id}" ${_selectedIds.has(a.id)?'checked':''} onchange="toggleRowSelect(${a.id},this.checked)"></td>
       <td class="px-4 py-3"><span class="font-black text-blue-600 text-xs font-mono">${a.tracking_id||'—'}</span><br><span class="text-[9px] text-slate-400">${a.index_id||''}</span></td>
       <td class="px-4 py-3"><p class="font-bold text-sm text-slate-800">${a.name_english||'—'}</p><p class="text-[10px] text-slate-400">${a.name_bangla||''}</p>
         <p class="text-[9px] mt-0.5">${payChip(a)}${a.room_no?` <span class="inline-block px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-bold">Room ${a.room_no}</span>`:''}</p></td>
@@ -202,6 +208,48 @@ function renderTable(apps){
       </td>
     </tr>`).join('');
   if(typeof lucide!=='undefined')lucide.createIcons();
+  renderBulkBar();
+}
+// ── Bulk select / status ──────────────────────────────────────────────────
+function toggleRowSelect(id,checked){
+  if(checked)_selectedIds.add(id);else _selectedIds.delete(id);
+  renderBulkBar();
+}
+function toggleSelectAll(cb){
+  document.querySelectorAll('.row-select').forEach(el=>{
+    el.checked=cb.checked;
+    const id=parseInt(el.dataset.id,10);
+    if(cb.checked)_selectedIds.add(id);else _selectedIds.delete(id);
+  });
+  renderBulkBar();
+}
+function clearBulkSelection(){
+  _selectedIds=new Set();
+  document.querySelectorAll('.row-select').forEach(el=>el.checked=false);
+  const all=document.getElementById('bulk-select-all');if(all)all.checked=false;
+  renderBulkBar();
+}
+function renderBulkBar(){
+  const bar=document.getElementById('bulk-action-bar');
+  if(!bar)return;
+  bar.classList.toggle('hidden',_selectedIds.size===0);
+  const countEl=document.getElementById('bulk-count');
+  if(countEl)countEl.textContent=`${_selectedIds.size} selected`;
+}
+async function applyBulkStatus(){
+  const ids=[..._selectedIds];
+  if(!ids.length)return;
+  const status=document.getElementById('bulk-status-select').value;
+  if(!(await openConfirm(`Set status to "${status}" for ${ids.length} application(s)?`)))return;
+  setLoading(true);
+  const r=await api('bulkUpdateStatus',{ids,status});
+  setLoading(false);
+  if(r.error){toast(r.error,'error');return;}
+  ids.forEach(id=>{const app=allApplications.find(a=>a.id===id);if(app)app.status=status;});
+  clearBulkSelection();
+  filterApps();
+  loadStats();
+  toast(`Status updated for ${r.count||ids.length} application(s)`,'success');
 }
 function filterApps(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
@@ -1482,6 +1530,155 @@ async function savePaymentSettings(){
   if(r.error){toast(r.error,'error');return;}
   currentPaySettings=value;
   toast('Payment settings saved'+(value.sslStoreId?(value.sslSandbox?' — gateway in SANDBOX mode':' — gateway LIVE'):' — gateway off (no Store ID)'),'success');
+}
+
+// ── SMS / OTP settings ────────────────────────────────────────────────────
+async function loadSmsTab(){
+  setLoading(true);
+  const r=await api('getSettings',{});
+  setLoading(false);
+  const s=(r.settings||{}).sms_settings||{};
+  setV('sms-method',s.method||'GET');
+  setV('sms-url',s.url||'');
+  setV('sms-headers',s.headers?JSON.stringify(s.headers):'');
+  setV('sms-body',s.bodyTemplate||'');
+  setV('sms-message',s.messageTemplate||'');
+  document.getElementById('sms-devcode-banner').classList.toggle('hidden',!!s.url);
+}
+async function saveSmsSettings(){
+  let headers={};
+  const rawHeaders=v('sms-headers');
+  if(rawHeaders){ try{headers=JSON.parse(rawHeaders);}catch(e){toast('Headers must be valid JSON (or left blank).','error');return;} }
+  const value={
+    method:v('sms-method')||'GET', url:v('sms-url'),
+    headers, bodyTemplate:v('sms-body'), messageTemplate:v('sms-message'),
+  };
+  setLoading(true);
+  const r=await api('saveSettings',{key:'sms_settings',value});
+  setLoading(false);
+  if(r.error){toast(r.error,'error');return;}
+  document.getElementById('sms-devcode-banner').classList.toggle('hidden',!!value.url);
+  toast('SMS settings saved'+(value.url?'':' — still unconfigured, codes will show on-screen instead of sending'),'success');
+}
+async function sendTestSms(){
+  const phone=v('sms-test-phone');
+  if(!phone){toast('Enter a phone number to test.','error');return;}
+  const note=document.getElementById('sms-test-note');
+  note.textContent='Sending…';
+  // Reuses the applicant-facing requestOtp action (same sender, same
+  // settings) rather than a separate test endpoint — an admin phone number
+  // gets a real OTP exactly like an applicant would.
+  const r=await fetch('/api/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'requestOtp',payload:{phone}})}).then(x=>x.json());
+  if(r.error){note.textContent=r.error;return;}
+  note.textContent=r.devCode?('Not sent — gateway unconfigured. Test code: '+r.devCode):'Sent — check the phone.';
+}
+
+// ── QR camera scanning ────────────────────────────────────────────────────
+// jsQR loaded from a CDN only when the admin actually opens this tab/clicks
+// Start camera — a pinned version, not @latest. Downscales to ~400x300 and
+// decodes at ~6/sec (not every animation frame) to avoid the battery
+// drain/lag full-resolution-every-tick decoding causes on mid-range phones.
+let _scanStream=null, _scanTimer=null, _scanBusy=false;
+const STATUS_LIST=['Pending','Called for Test','Admitted','Rejected'];
+function _ensureJsQR(){
+  if(window.jsQR)return Promise.resolve();
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload=resolve; s.onerror=()=>reject(new Error('Could not load the QR scanner — check your connection.'));
+    document.head.appendChild(s);
+  });
+}
+async function startScan(){
+  const note=document.getElementById('scan-note');
+  note.textContent='Loading scanner…';
+  try{ await _ensureJsQR(); }catch(e){ note.textContent=e.message; return; }
+  try{
+    _scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  }catch(e){
+    note.textContent='Could not access the camera — check browser permission.';
+    return;
+  }
+  const video=document.getElementById('scan-video');
+  video.srcObject=_scanStream;
+  video.classList.remove('hidden');
+  await video.play();
+  document.getElementById('scan-start-btn').classList.add('hidden');
+  document.getElementById('scan-stop-btn').classList.remove('hidden');
+  note.textContent='Point the camera at a QR code…';
+  const canvas=document.getElementById('scan-canvas');
+  canvas.width=400; canvas.height=300;
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  _scanTimer=setInterval(()=>{
+    if(_scanBusy||!video.videoWidth)return;
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    const code=window.jsQR(img.data,img.width,img.height);
+    if(code&&code.data){ _scanBusy=true; handleScannedCode(code.data.trim()); }
+  },150);
+}
+function stopScan(){
+  if(_scanTimer){clearInterval(_scanTimer);_scanTimer=null;}
+  if(_scanStream){_scanStream.getTracks().forEach(t=>t.stop());_scanStream=null;}
+  const video=document.getElementById('scan-video');
+  if(video){video.pause();video.srcObject=null;video.classList.add('hidden');}
+  document.getElementById('scan-start-btn')?.classList.remove('hidden');
+  document.getElementById('scan-stop-btn')?.classList.add('hidden');
+  const note=document.getElementById('scan-note'); if(note)note.textContent='';
+  _scanBusy=false;
+}
+async function handleScannedCode(code){
+  const note=document.getElementById('scan-note');
+  note.textContent='Looking up '+code+'…';
+  const r=await api('lookupByCode',{code});
+  if(r.error){
+    note.textContent=r.error+' — keep scanning.';
+    setTimeout(()=>{_scanBusy=false;},1200);
+    return;
+  }
+  renderScanResult(r.application);
+  note.textContent='Found — pick a status below, or keep scanning for the next one.';
+  _scanBusy=false;
+}
+function renderScanResult(app){
+  const host=document.getElementById('scan-result');
+  host.classList.remove('hidden');
+  host.innerHTML=
+    '<div class="flex items-center gap-4">'+
+      (app.student_photo?'<img src="'+app.student_photo+'" style="width:56px;height:56px;object-fit:cover;border-radius:10px">':'')+
+      '<div class="flex-1">'+
+        '<p class="font-black text-slate-800">'+(app.name_english||app.name_bangla||'—')+'</p>'+
+        '<p class="text-xs text-slate-400">'+(app.class||'')+' · '+(app.category||'')+' · <span class="font-mono text-blue-600">'+(app.tracking_id||'')+'</span></p>'+
+        '<p class="text-xs mt-1">Current status: <b>'+(app.status||'Pending')+'</b></p>'+
+      '</div>'+
+    '</div>'+
+    '<div class="flex items-center gap-2 mt-3">'+
+      '<select id="scan-status-select" class="finput finput-sm" style="width:160px">'+
+        STATUS_LIST.map(s=>'<option value="'+s+'"'+(s===app.status?' selected':'')+'>'+s+'</option>').join('')+
+      '</select>'+
+      '<button class="nav-btn nav-btn-primary" onclick="confirmScanStatus('+app.id+',\''+(app.tracking_id||'').replace(/'/g,"\\'")+'\',\''+(app.name_english||'').replace(/'/g,"\\'")+'\')">Set status</button>'+
+    '</div>';
+}
+async function confirmScanStatus(id,trackingId,name){
+  const status=document.getElementById('scan-status-select').value;
+  const r=await api('updateStatus',{id,status});
+  if(r.error){toast(r.error,'error');return;}
+  _scanLog.unshift({trackingId,name,status,at:new Date()});
+  renderScanLog();
+  toast('Status updated','success');
+}
+let _scanLog=[];
+function renderScanLog(){
+  const host=document.getElementById('scan-log');
+  if(!_scanLog.length){host.textContent='Nothing scanned yet.';return;}
+  host.innerHTML='<table class="w-full text-left" style="font-size:12px"><thead><tr class="text-[10px] uppercase text-slate-400">'+
+    '<th class="px-2 py-1">Time</th><th class="px-2 py-1">Applicant</th><th class="px-2 py-1">Tracking</th><th class="px-2 py-1">Status set</th></tr></thead><tbody>'+
+    _scanLog.map(e=>'<tr class="border-t border-slate-100">'+
+      '<td class="px-2 py-1 text-slate-400">'+e.at.toLocaleTimeString()+'</td>'+
+      '<td class="px-2 py-1">'+(e.name||'—')+'</td>'+
+      '<td class="px-2 py-1 font-mono text-blue-600">'+(e.trackingId||'')+'</td>'+
+      '<td class="px-2 py-1 font-bold">'+e.status+'</td></tr>').join('')+
+    '</tbody></table>';
 }
 
 const PAY_STATUS_COLORS={initiated:'bg-slate-100 text-slate-500',review:'bg-amber-100 text-amber-700',valid:'bg-emerald-100 text-emerald-700',verified:'bg-emerald-100 text-emerald-700',failed:'bg-red-100 text-red-600',cancelled:'bg-slate-100 text-slate-400',rejected:'bg-red-100 text-red-600'};

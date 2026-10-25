@@ -3,11 +3,12 @@ import crypto from 'crypto';
 
 // ── Public applicant self-service API ────────────────────────────────────────
 // Separate from /api/exec (which is admin-password gated). Applicants sign in
-// (email now; Google later — the session shape is identical so Google slots in
-// without touching the apply logic), pick a circular, and submit. Tracking and
-// index numbers come from the same race-proof DB primitives the admin flow uses
-// (atomic sequence + atomic per-criteria counter + UNIQUE constraints), so a
-// number can never be duplicated even under simultaneous submissions.
+// (email, Google, or phone+OTP — every method issues the same session shape,
+// so none of the apply logic below needs to know which one was used), pick a
+// circular, and submit. Tracking and index numbers come from the same
+// race-proof DB primitives the admin flow uses (atomic sequence + atomic
+// per-criteria counter + UNIQUE constraints), so a number can never be
+// duplicated even under simultaneous submissions.
 
 // Tolerate a SUPABASE_URL that was pasted with a trailing /rest/v1 or slash.
 const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
@@ -61,6 +62,10 @@ function buildIndexId(settings, session, cls, cat, counter) {
 }
 
 // ── Signed applicant session (base64url payload + HMAC) ──────────────────────
+// Identity is either an email (email/Google sign-in) or a phone number
+// (OTP sign-in) — {identity, identityType, name, exp}. identityFilter/
+// identityColumns below are how every query/insert site stays agnostic to
+// which one a given applicant used.
 function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
 function signSession(payloadObj) {
   const payload = b64url(JSON.stringify(payloadObj));
@@ -80,12 +85,66 @@ function readSession(req) {
   } catch { return null; }
   let data;
   try { data = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()); } catch { return null; }
-  if (!data.email || !data.exp || Date.now() > data.exp) return null;
+  if (!data.exp || Date.now() > data.exp) return null;
+  // Back-compat: a cookie issued before identity/identityType existed
+  // (30-day TTL, so these linger well past deploy) still just carries
+  // {email, name, exp} — normalize it instead of rejecting it, or every
+  // applicant who signed in last month gets silently logged out.
+  if (data.email && !data.identityType) return { identity: data.email, identityType: 'email', name: data.name, exp: data.exp };
+  if (!data.identity || !data.identityType) return null;
   return data;
 }
 function sessionCookie(token) {
   const maxAge = Math.floor(SESSION_TTL_MS / 1000);
   return `applicant_session=${encodeURIComponent(token)}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+}
+function identityFilter(session) {
+  const col = session.identityType === 'phone' ? 'applicant_phone' : 'applicant_email';
+  return `${col}=eq.${encodeURIComponent(session.identity)}`;
+}
+function identityColumns(session) {
+  return session.identityType === 'phone'
+    ? { applicant_phone: session.identity }
+    : { applicant_email: session.identity };
+}
+
+// ── Phone + OTP sign-in ────────────────────────────────────────────────────
+// 01XXXXXXXXX or +8801XXXXXXXXX, normalized to the bare 01XXXXXXXXX form
+// (the form both get stored and matched as, consistently).
+function normalizePhone(raw) {
+  const s = String(raw || '').trim().replace(/[\s-]/g, '');
+  const m = /^(?:\+?88)?(01\d{9})$/.exec(s);
+  return m ? m[1] : null;
+}
+function hashOtp(code, phone) {
+  return crypto.createHash('sha256').update(`${code}:${phone}`).digest('hex');
+}
+// Generic HTTP sender — sms_settings holds {method, url, headers, bodyTemplate},
+// with {phone}/{otp} placeholders filled in before the request. Deliberately
+// provider-agnostic: whichever BD SMS API gets configured later plugs into
+// this same shape without another code change. GET-style gateways take the
+// substitution URL-encoded (already handled by the templated URL/query
+// string the admin enters); POST-style gateways get it JSON-escaped via
+// JSON.stringify so a stray quote in the message can't break the payload.
+async function sendOtpSms(phone, code, smsSettings) {
+  const s = smsSettings || {};
+  if (!s.url) return { sent: false, reason: 'not_configured' };
+  const message = String(s.messageTemplate || 'Your CCPC Admission verification code is {otp}').replace(/\{phone\}/g, phone).replace(/\{otp\}/g, code);
+  let url = String(s.url).replace(/\{phone\}/g, encodeURIComponent(phone)).replace(/\{otp\}/g, encodeURIComponent(code)).replace(/\{message\}/g, encodeURIComponent(message));
+  const method = (s.method || 'GET').toUpperCase();
+  const headers = { ...(s.headers || {}) };
+  let body;
+  if (method !== 'GET' && s.bodyTemplate) {
+    const jsonSafe = (v) => JSON.stringify(v).slice(1, -1); // escaped, without the wrapping quotes
+    body = String(s.bodyTemplate).replace(/\{phone\}/g, jsonSafe(phone)).replace(/\{otp\}/g, jsonSafe(code)).replace(/\{message\}/g, jsonSafe(message));
+    if (!headers['Content-Type'] && !headers['content-type']) headers['Content-Type'] = 'application/json';
+  }
+  try {
+    const res = await fetch(url, { method, headers, body, signal: AbortSignal.timeout(15000) });
+    return { sent: res.ok, status: res.status };
+  } catch (e) {
+    return { sent: false, reason: 'request_failed' };
+  }
 }
 
 // Fields an applicant is allowed to set — never trust arbitrary columns from the
@@ -160,13 +219,20 @@ export async function POST(req) {
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       return NextResponse.json({ error: 'Enter a valid email address.' });
     }
-    const token = signSession({ email, name, exp: Date.now() + SESSION_TTL_MS });
+    const token = signSession({ identity: email, identityType: 'email', name, exp: Date.now() + SESSION_TTL_MS });
     return NextResponse.json({ email, name }, { headers: { 'Set-Cookie': sessionCookie(token) } });
   }
 
   if (action === 'me') {
     const s = readSession(req);
-    return NextResponse.json({ authed: !!s, email: s?.email || null, name: s?.name || null });
+    return NextResponse.json({
+      authed: !!s,
+      identity: s?.identity || null,
+      identityType: s?.identityType || null,
+      email: (s && s.identityType === 'email') ? s.identity : null,
+      phone: (s && s.identityType === 'phone') ? s.identity : null,
+      name: s?.name || null,
+    });
   }
 
   // ── Google sign-in ──────────────────────────────────────────────────────────
@@ -196,8 +262,65 @@ export async function POST(req) {
       }
     } catch (_) { /* falls through to error */ }
     if (!info) return NextResponse.json({ error: 'Could not verify your Google sign-in. Please try again.' }, { status: 401 });
-    const token = signSession({ email: info.email, name: info.name, exp: Date.now() + SESSION_TTL_MS });
+    const token = signSession({ identity: info.email, identityType: 'email', name: info.name, exp: Date.now() + SESSION_TTL_MS });
     return NextResponse.json({ email: info.email, name: info.name }, { headers: { 'Set-Cookie': sessionCookie(token) } });
+  }
+
+  // ── Phone + OTP sign-in ──────────────────────────────────────────────────
+  // Two-tier rate limit: refuse within 60s of the last request (stops
+  // rapid-fire), and refuse past 5 requests in 24h for the same phone (stops
+  // sustained abuse — once a real SMS gateway is wired in, every request has
+  // a real cost). While sms_settings isn't configured, the code comes back
+  // directly in the response (devCode) instead of being sent, so phone
+  // sign-in is testable before a real SMS account exists — the admin SMS
+  // settings tab shows a persistent warning while this is the case, since
+  // unlike the payment module's manual fallback, devCode mode means no
+  // verification is actually happening at all.
+  if (action === 'requestOtp') {
+    const phone = normalizePhone(payload.phone);
+    if (!phone) return NextResponse.json({ error: 'Enter a valid Bangladeshi mobile number.' });
+    const recent = await sb(`admission_otps?phone=eq.${encodeURIComponent(phone)}&select=created_at&order=created_at.desc&limit=1`);
+    const last = (Array.isArray(recent) && recent[0]) ? new Date(recent[0].created_at).getTime() : 0;
+    if (last && Date.now() - last < 60 * 1000) {
+      return NextResponse.json({ error: 'Please wait a moment before requesting another code.' });
+    }
+    const dayCount = await sb(`admission_otps?phone=eq.${encodeURIComponent(phone)}&created_at=gte.${encodeURIComponent(new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())}&select=id`);
+    if (Array.isArray(dayCount) && dayCount.length >= 5) {
+      return NextResponse.json({ error: 'Too many codes requested for this number today. Try again tomorrow.' });
+    }
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const ins = await sb('admission_otps', 'POST', {
+      phone, code_hash: hashOtp(code, phone), purpose: 'login',
+      expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    });
+    if (ins && ins.error) return NextResponse.json({ error: 'Could not send a code. Try again.' });
+
+    const settingsRows = await sb(`admission_settings?key=eq.sms_settings`);
+    const smsSettings = (Array.isArray(settingsRows) && settingsRows[0]) ? settingsRows[0].value : {};
+    if (!smsSettings || !smsSettings.url) {
+      return NextResponse.json({ sent: true, devCode: code });
+    }
+    const result = await sendOtpSms(phone, code, smsSettings);
+    if (!result.sent) return NextResponse.json({ error: 'Could not send the code. Please try again shortly.' });
+    return NextResponse.json({ sent: true });
+  }
+
+  if (action === 'verifyOtp') {
+    const phone = normalizePhone(payload.phone);
+    const code = String(payload.code || '').trim();
+    if (!phone || !code) return NextResponse.json({ error: 'Enter the phone number and the code.' });
+    const rows = await sb(`admission_otps?phone=eq.${encodeURIComponent(phone)}&verified_at=is.null&expires_at=gte.${encodeURIComponent(new Date().toISOString())}&select=*&order=created_at.desc&limit=1`);
+    const row = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!row) return NextResponse.json({ error: 'That code has expired. Request a new one.' });
+    if (row.attempts >= 5) return NextResponse.json({ error: 'Too many incorrect attempts. Request a new code.' });
+    if (hashOtp(code, phone) !== row.code_hash) {
+      await sb(`admission_otps?id=eq.${row.id}`, 'PATCH', { attempts: row.attempts + 1 });
+      return NextResponse.json({ error: 'Incorrect code. Please try again.' });
+    }
+    await sb(`admission_otps?id=eq.${row.id}`, 'PATCH', { verified_at: new Date().toISOString() });
+    const name = String(payload.name || '').trim();
+    const token = signSession({ identity: phone, identityType: 'phone', name, exp: Date.now() + SESSION_TTL_MS });
+    return NextResponse.json({ phone, name }, { headers: { 'Set-Cookie': sessionCookie(token) } });
   }
 
   if (action === 'logout') {
@@ -221,7 +344,7 @@ export async function POST(req) {
     const ext = /png/i.test(contentType) ? 'png' : /webp/i.test(contentType) ? 'webp' : 'jpg';
     const buf = Buffer.from(m[3], 'base64');
     if (buf.length > 130 * 1024) return NextResponse.json({ error: 'Image is over 130 KB even after compression — pick a smaller photo.' }, { status: 400 });
-    const safe = String(session.email).replace(/[^a-z0-9]/gi, '_').slice(0, 40);
+    const safe = String(session.identity).replace(/[^a-z0-9]/gi, '_').slice(0, 40);
     const path = `${folder}/${safe}-${field}-${Date.now()}.${ext}`;
     const up = await fetch(`${SB_URL}/storage/v1/object/applicants/${path}`, {
       method: 'POST',
@@ -274,7 +397,7 @@ export async function POST(req) {
 
     // One live application per exact combo per account — a double-click or
     // re-visit resumes the existing one instead of minting a fresh index.
-    const dupQ = `admission_applications?applicant_email=eq.${encodeURIComponent(session.email)}` +
+    const dupQ = `admission_applications?${identityFilter(session)}` +
       `&session=eq.${encodeURIComponent(pick.session)}&class=eq.${encodeURIComponent(pick.class)}` +
       `&version=eq.${encodeURIComponent(pick.version)}&category=eq.${encodeURIComponent(pick.category)}` +
       `&select=id,tracking_id,index_id,stage,payment_status&order=created_at.desc&limit=1`;
@@ -294,7 +417,7 @@ export async function POST(req) {
         ...pick,
         tracking_id: trackingId,
         index_id: buildIndexId(idxSettings, pick.session, pick.class, pick.category, counter),
-        applicant_email: session.email,
+        ...identityColumns(session),
         source: 'applicant',
         status: 'Pending',
         stage: 'initiated',
@@ -323,7 +446,7 @@ export async function POST(req) {
     const data = {};
     for (const k of Object.keys(form)) if (ALLOWED_FIELDS.has(k) && !LOCKED.has(k)) data[k] = form[k];
     data.updated_at = new Date().toISOString();
-    const q = `admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&stage=eq.initiated`;
+    const q = `admission_applications?id=eq.${id}&${identityFilter(session)}&stage=eq.initiated`;
     const res = await fetch(`${SB_URL}/rest/v1/${q}`, {
       method: 'PATCH',
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation', 'Accept-Profile': 'admission', 'Content-Profile': 'admission' },
@@ -342,7 +465,7 @@ export async function POST(req) {
     if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
     const id = parseInt(payload.id, 10);
     if (!id) return NextResponse.json({ error: 'Missing application id.' });
-    const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=id,stage,name_english,student_photo`);
+    const rows = await sb(`admission_applications?id=eq.${id}&${identityFilter(session)}&select=id,stage,name_english,student_photo`);
     const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
     if (!app) return NextResponse.json({ error: 'Application not found.' });
     if (app.stage !== 'initiated') return NextResponse.json({ error: 'This application is already submitted.' });
@@ -350,7 +473,7 @@ export async function POST(req) {
     if (!app.name_english) missing.push("applicant's name (English)");
     if (!app.student_photo) missing.push("student photo");
     if (missing.length) return NextResponse.json({ error: 'Please complete before submitting: ' + missing.join(', ') + '. (Use Save progress first.)' });
-    const upd = await fetch(`${SB_URL}/rest/v1/admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&stage=eq.initiated`, {
+    const upd = await fetch(`${SB_URL}/rest/v1/admission_applications?id=eq.${id}&${identityFilter(session)}&stage=eq.initiated`, {
       method: 'PATCH',
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation', 'Accept-Profile': 'admission', 'Content-Profile': 'admission' },
       body: JSON.stringify({ stage: 'submitted', updated_at: new Date().toISOString() }),
@@ -367,7 +490,7 @@ export async function POST(req) {
     if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
     const id = parseInt(payload.id, 10);
     if (!id) return NextResponse.json({ error: 'Missing application id.' });
-    const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=id,class,stage,payment_status,payment_amount,paid_at,tracking_id`);
+    const rows = await sb(`admission_applications?id=eq.${id}&${identityFilter(session)}&select=id,class,stage,payment_status,payment_amount,paid_at,tracking_id`);
     const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
     if (!app) return NextResponse.json({ error: 'Application not found.' });
     const setRows = await sb(`admission_settings?key=in.(payment_settings,circular_settings)`);
@@ -395,7 +518,7 @@ export async function POST(req) {
     const id = parseInt(payload.id, 10);
     const type = payload.type === 'admit' ? 'admit' : 'form';
     if (!id) return NextResponse.json({ error: 'Missing application id.' });
-    const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=*`);
+    const rows = await sb(`admission_applications?id=eq.${id}&${identityFilter(session)}&select=*`);
     const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
     if (!app) return NextResponse.json({ error: 'Application not found.' });
     if (type === 'form' && app.payment_status !== 'verified') {
@@ -423,7 +546,7 @@ export async function POST(req) {
     // Whitelist the fields the applicant may set.
     const data = {};
     for (const k of Object.keys(form)) if (ALLOWED_FIELDS.has(k)) data[k] = form[k];
-    data.applicant_email = session.email;
+    Object.assign(data, identityColumns(session));
     data.source = 'applicant';
     data.status = 'Pending';
     data.created_at = new Date().toISOString();
@@ -465,7 +588,7 @@ export async function POST(req) {
     const session = readSession(req);
     if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
     // Full rows: the client needs every field to resume an in-progress draft.
-    const rows = await sb(`admission_applications?applicant_email=eq.${encodeURIComponent(session.email)}&select=*&order=created_at.desc`);
+    const rows = await sb(`admission_applications?${identityFilter(session)}&select=*&order=created_at.desc`);
     return NextResponse.json({ applications: (rows && !rows.error) ? rows : [] });
   }
 

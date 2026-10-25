@@ -34,7 +34,9 @@ async function sb(path, method = 'GET', body = null, prefer = null) {
   return text ? JSON.parse(text) : null;
 }
 
-// Same applicant session cookie as /api/apply (keep the two in sync).
+// Same applicant session cookie as /api/apply (keep the two in sync, incl.
+// the identity/identityType shape and the back-compat normalization for a
+// cookie issued before that existed).
 function readSession(req) {
   const cookie = req.headers.get('cookie') || '';
   const m = cookie.match(/(?:^|;\s*)applicant_session=([^;]+)/);
@@ -46,8 +48,14 @@ function readSession(req) {
   try { if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null; } catch { return null; }
   let data;
   try { data = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()); } catch { return null; }
-  if (!data.email || !data.exp || Date.now() > data.exp) return null;
+  if (!data.exp || Date.now() > data.exp) return null;
+  if (data.email && !data.identityType) return { identity: data.email, identityType: 'email', name: data.name, exp: data.exp };
+  if (!data.identity || !data.identityType) return null;
   return data;
+}
+function identityFilter(session) {
+  const col = session.identityType === 'phone' ? 'applicant_phone' : 'applicant_email';
+  return `${col}=eq.${encodeURIComponent(session.identity)}`;
 }
 
 async function loadPaySettings() {
@@ -142,7 +150,7 @@ export async function POST(req) {
 
   const id = parseInt(payload.id, 10);
   if (!id) return NextResponse.json({ error: 'Missing application id.' });
-  const rows = await sb(`admission_applications?id=eq.${id}&applicant_email=eq.${encodeURIComponent(session.email)}&select=id,class,session,stage,payment_status,tracking_id,name_english,applicant_email,emergency_contact,present_address`);
+  const rows = await sb(`admission_applications?id=eq.${id}&${identityFilter(session)}&select=id,class,session,stage,payment_status,tracking_id,name_english,applicant_email,emergency_contact,present_address`);
   const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
   if (!app) return NextResponse.json({ error: 'Application not found.' });
   if (app.stage === 'initiated') return NextResponse.json({ error: 'Submit the application before paying.' });
@@ -174,9 +182,15 @@ export async function POST(req) {
       ipn_url: `${base}/api/pay?cb=ipn&t=${tranId}`,
       shipping_method: 'NO', product_name: `Admission fee — ${app.class} (${app.tracking_id})`,
       product_category: 'Admission', product_profile: 'non-physical-goods',
-      cus_name: app.name_english || 'Applicant', cus_email: app.applicant_email || session.email,
+      // SSLCommerz's hosted checkout requires a well-formed cus_email
+      // regardless of how the applicant signed in — a phone-only applicant
+      // has neither app.applicant_email nor a session email, so this is a
+      // synthetic placeholder fed only into this one gateway field, never
+      // persisted or used for matching anywhere.
+      cus_name: app.name_english || 'Applicant',
+      cus_email: app.applicant_email || (session.identityType === 'email' ? session.identity : `${session.identity}@phone.placeholder`),
       cus_add1: app.present_address || 'Chattogram', cus_city: 'Chattogram', cus_country: 'Bangladesh',
-      cus_phone: app.emergency_contact || '01000000000',
+      cus_phone: app.emergency_contact || (session.identityType === 'phone' ? session.identity : '01000000000'),
     });
     let g = null;
     try {

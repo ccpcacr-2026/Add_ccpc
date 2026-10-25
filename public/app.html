@@ -108,10 +108,19 @@
           <i data-lucide="plus" class="h-3.5 w-3.5"></i> New Application
         </button>
       </div>
+      <div id="bulk-action-bar" class="hidden flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 mb-3">
+        <span id="bulk-count" class="text-xs font-bold text-blue-700">0 selected</span>
+        <select id="bulk-status-select" class="finput finput-sm" style="width:160px">
+          <option>Pending</option><option>Called for Test</option><option>Admitted</option><option>Rejected</option>
+        </select>
+        <button class="nav-btn nav-btn-primary" onclick="applyBulkStatus()">Set status for selected</button>
+        <button class="nav-btn" onclick="clearBulkSelection()">Clear</button>
+      </div>
       <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-slate-50 border-b border-slate-100">
+              <th class="tbl-hdr text-left" style="width:36px"><input type="checkbox" id="bulk-select-all" onchange="toggleSelectAll(this)"></th>
               <th class="tbl-hdr text-left">Tracking ID</th>
               <th class="tbl-hdr text-left">Student Name</th>
               <th class="tbl-hdr text-left hidden md:table-cell">Class</th>
@@ -122,7 +131,7 @@
             </tr>
           </thead>
           <tbody id="app-table-body">
-            <tr><td colspan="7" class="px-4 py-10 text-center text-slate-400 text-sm">Loading…</td></tr>
+            <tr><td colspan="8" class="px-4 py-10 text-center text-slate-400 text-sm">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -392,6 +401,12 @@
         </button>
         <button class="atab" onclick="showAdminTab('at-payments',this)">
           <i data-lucide="credit-card" class="h-3.5 w-3.5"></i> Payments &amp; Admit
+        </button>
+        <button class="atab" onclick="showAdminTab('at-sms',this)">
+          <i data-lucide="message-square" class="h-3.5 w-3.5"></i> SMS / OTP
+        </button>
+        <button class="atab" onclick="showAdminTab('at-scan',this)">
+          <i data-lucide="scan-line" class="h-3.5 w-3.5"></i> Scan
         </button>
       </div>
 
@@ -939,6 +954,62 @@
             </div>
           </div>
 
+        </div>
+      </div>
+
+      <!-- Tab: SMS / OTP -->
+      <div id="at-sms" class="atab-panel hidden">
+        <div class="max-w-5xl mx-auto space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-1">
+              <p class="sec-lbl">SMS Settings — Phone / OTP sign-in</p>
+              <button class="nav-btn nav-btn-primary" onclick="saveSmsSettings()">💾 Save settings</button>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">Generic HTTP sender — points at whichever SMS gateway you use. <code>{phone}</code>, <code>{otp}</code> and <code>{message}</code> are substituted into the URL/body before the request.</p>
+            <div id="sms-devcode-banner" class="hidden" style="background:#fef3c7;border:1px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#92400e;font-weight:600">
+              ⚠️ SMS not configured — verification codes are returned directly in the response, not sent. Applicants are not actually phone-verified yet.
+            </div>
+            <div class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+              <div><label class="flbl">HTTP method</label>
+                <select id="sms-method" class="finput finput-sm"><option value="GET">GET</option><option value="POST">POST</option></select>
+              </div>
+              <div style="grid-column:span 2"><label class="flbl">Request URL (GET: include query params with tokens)</label><input id="sms-url" class="finput finput-sm" placeholder="https://your-sms-gateway.example/send?to={phone}&amp;msg={message}&amp;key=..."></div>
+            </div>
+            <div class="grid gap-3 mt-3">
+              <div><label class="flbl">Headers (JSON object, optional)</label><input id="sms-headers" class="finput finput-sm" placeholder='{"Authorization":"Bearer ..."}'></div>
+              <div><label class="flbl">Body template (POST only — JSON, optional)</label><input id="sms-body" class="finput finput-sm" placeholder='{"to":"{phone}","text":"{message}"}'></div>
+              <div><label class="flbl">Message template</label><input id="sms-message" class="finput finput-sm" placeholder="Your CCPC Admission verification code is {otp}"></div>
+            </div>
+            <div class="flex gap-3 items-center mt-4">
+              <input id="sms-test-phone" class="finput finput-sm" style="width:160px" placeholder="01XXXXXXXXX to test">
+              <button class="nav-btn" onclick="sendTestSms()">Send test SMS</button>
+              <span id="sms-test-note" class="text-xs text-slate-400"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Scan (QR camera) -->
+      <div id="at-scan" class="atab-panel hidden">
+        <div class="max-w-3xl mx-auto space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p class="sec-lbl mb-1">Scan an admit card / application QR</p>
+            <p class="text-xs text-slate-400 mb-4">Point the camera at a printed QR code (it encodes the application's tracking or index number) to pull up that applicant and change their status on the spot.</p>
+            <div class="flex gap-3 items-center mb-3">
+              <button class="nav-btn nav-btn-primary" id="scan-start-btn" onclick="startScan()">Start camera</button>
+              <button class="nav-btn hidden" id="scan-stop-btn" onclick="stopScan()">Stop camera</button>
+              <span id="scan-note" class="text-xs text-slate-400"></span>
+            </div>
+            <video id="scan-video" class="hidden" playsinline muted style="width:100%;max-width:360px;border-radius:12px;background:#000"></video>
+            <canvas id="scan-canvas" class="hidden"></canvas>
+          </div>
+
+          <div id="scan-result" class="hidden bg-white rounded-2xl border border-slate-100 shadow-sm p-6"></div>
+
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p class="sec-lbl mb-2">Scanned this session</p>
+            <div id="scan-log" class="text-xs text-slate-400">Nothing scanned yet.</div>
+          </div>
         </div>
       </div>
 
