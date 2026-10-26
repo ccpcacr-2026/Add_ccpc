@@ -63,6 +63,65 @@ async function sb(path, method = 'GET', body = null) {
   return text ? JSON.parse(text) : null;
 }
 
+// Canonical built-in field list — kept identical to app/api/apply/route.js
+// (duplicated rather than shared, matching this app's existing convention
+// of each API route being self-contained with its own sb()/sbRpc() etc.).
+const BUILTIN_FORM_FIELDS = [
+  { key: 'name_english', label: "Student's name (English)", type: 'text', section: 'student', required: true, visible: true, built_in: true, wide: true, placeholder: 'As per birth certificate' },
+  { key: 'name_bangla', label: "Student's name (Bangla)", type: 'text', section: 'student', required: false, visible: true, built_in: true, wide: true, placeholder: 'নাম' },
+  { key: 'date_of_birth', label: 'Date of birth', type: 'date', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'], section: 'student', required: false, visible: true, built_in: true },
+  { key: 'blood_group', label: 'Blood group', type: 'text', section: 'student', required: false, visible: true, built_in: true, placeholder: 'e.g. B+' },
+  { key: 'religion', label: 'Religion', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'birth_reg_no', label: 'Birth registration no.', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'nationality', label: 'Nationality', type: 'text', default: 'Bangladeshi', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'emergency_contact', label: 'Emergency contact no.', type: 'text', section: 'student', required: false, visible: true, built_in: true, placeholder: '+8801…' },
+  { key: 'height', label: 'Height (inch)', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'last_class', label: 'Last class', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'last_version', label: 'Last version', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'last_institute', label: 'Last institute', type: 'text', section: 'student', required: false, visible: true, built_in: true, wide: true },
+  { key: 'present_address', label: 'Present address', type: 'textarea', section: 'student', required: false, visible: true, built_in: true, wide: true },
+  { key: 'permanent_address', label: 'Permanent address', type: 'textarea', section: 'student', required: false, visible: true, built_in: true, wide: true },
+  { key: 'co_curricular', label: 'Co-curricular activities', type: 'text', section: 'student', required: false, visible: true, built_in: true, wide: true, placeholder: 'e.g. Football, Drawing, Singing' },
+  { key: 'student_photo', label: "Student's photo", type: 'photo', section: 'student', required: true, visible: true, built_in: true, wide: true },
+
+  { key: 'father_name', label: "Father's name", type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_profession', label: 'Profession / occupation', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_designation', label: 'Designation / rank', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_education', label: 'Education', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_contact', label: 'Contact no.', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_nid', label: 'NID', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_office_address', label: 'Office address / unit', type: 'text', section: 'father', required: false, visible: true, built_in: true, wide: true },
+  { key: 'father_yearly_income', label: 'Yearly income', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_photo', label: "Father's photo", type: 'photo', section: 'father', required: false, visible: true, built_in: true, wide: true },
+
+  { key: 'mother_name', label: "Mother's name", type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_profession', label: 'Profession / occupation', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_designation', label: 'Designation / rank', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_education', label: 'Education', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_contact', label: 'Contact no.', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_nid', label: 'NID', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_office_address', label: 'Office address / unit', type: 'text', section: 'mother', required: false, visible: true, built_in: true, wide: true },
+  { key: 'mother_yearly_income', label: 'Yearly income', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_photo', label: "Mother's photo", type: 'photo', section: 'mother', required: false, visible: true, built_in: true, wide: true },
+
+  { key: 'guardian_name', label: "Guardian's name", type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_relation', label: 'Relation', type: 'text', section: 'guardian', required: false, visible: true, built_in: true, placeholder: 'e.g. Father' },
+  { key: 'guardian_profession', label: 'Profession / occupation', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_designation', label: 'Designation / rank', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_education', label: 'Education', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_contact', label: 'Contact no.', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_office_address', label: 'Office address / unit', type: 'text', section: 'guardian', required: false, visible: true, built_in: true, wide: true },
+  { key: 'guardian_nid', label: 'Guardian NID', type: 'text', section: 'guardian', required: false, visible: false, built_in: true },
+  { key: 'guardian_photo', label: "Guardian's photo", type: 'photo', section: 'guardian', required: false, visible: true, built_in: true, wide: true },
+];
+function reconcileFormFields(stored) {
+  const list = Array.isArray(stored) ? stored.slice() : [];
+  const seen = new Set(list.map(f => f && f.key));
+  BUILTIN_FORM_FIELDS.forEach(def => { if (!seen.has(def.key)) list.push({ ...def }); });
+  return list;
+}
+
 async function sbRpc(fn, params = {}) {
   const res = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST',
@@ -301,6 +360,28 @@ export async function POST(req) {
         { value, updated_at: new Date().toISOString() });
     } else {
       await sb('admission_settings', 'POST', { key, value, updated_at: new Date().toISOString() });
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  // ── Form Fields (applicant "fill in" form editor) ─────────────────────────
+  // Mirrors the canonical list in app/api/apply/route.js — reconciled the
+  // same way (any built-in key missing from storage gets appended) so the
+  // admin editor always shows every field the applicant form can render,
+  // never a stale subset.
+  if (action === 'getFormFields') {
+    const rows = await sb('admission_settings?key=eq.form_fields_json');
+    const stored = (Array.isArray(rows) && rows[0]) ? rows[0].value : [];
+    return NextResponse.json({ fields: reconcileFormFields(stored) });
+  }
+  if (action === 'saveFormFields') {
+    const fields = Array.isArray(payload.fields) ? payload.fields : [];
+    const existing = await sb('admission_settings?key=eq.form_fields_json');
+    if (existing && !existing.error && existing.length > 0) {
+      await sb('admission_settings?key=eq.form_fields_json', 'PATCH',
+        { value: fields, updated_at: new Date().toISOString() });
+    } else {
+      await sb('admission_settings', 'POST', { key: 'form_fields_json', value: fields, updated_at: new Date().toISOString() });
     }
     return NextResponse.json({ success: true });
   }

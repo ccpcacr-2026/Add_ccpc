@@ -49,6 +49,14 @@ INSERT INTO admission_settings (key, value) VALUES
 }'),
 ('form_settings',       '{}'),
 ('admit_card_settings', '{}'),
+-- form_fields_json is deliberately NOT seeded here -- the server
+-- reconciles whatever's stored (even nothing) against a canonical
+-- built-in field list on every read (app/api/apply/route.js), so a
+-- missing/empty row self-heals to the same effective default as an
+-- explicit seed would, without duplicating a 40+ field blob in two
+-- places. See migration_form_fields.sql for the one-time seed used on
+-- an already-running install (skipped here via ON CONFLICT DO NOTHING
+-- once this table exists either way).
 -- {method, url, headers, bodyTemplate} for sending OTP SMS — provider-
 -- agnostic on purpose; stays empty until the admin configures a real SMS
 -- API in the SMS settings tab. While empty, requestOtp returns the code
@@ -140,6 +148,11 @@ CREATE TABLE IF NOT EXISTS admission_applications (
   academic_records JSONB DEFAULT '[]',
   siblings         JSONB DEFAULT '[]',
 
+  -- Answers for admin-added custom fields (see admission_settings's
+  -- form_fields_json) -- built-in fields keep living as the real columns
+  -- above; a field the admin adds on the fly has nowhere else to live.
+  extra_fields     JSONB DEFAULT '{}',
+
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
@@ -147,6 +160,7 @@ CREATE TABLE IF NOT EXISTS admission_applications (
 -- Run this if table already exists (adds columns to existing rows)
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS academic_records JSONB DEFAULT '[]';
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS siblings         JSONB DEFAULT '[]';
+ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS extra_fields     JSONB DEFAULT '{}';
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS stage            TEXT DEFAULT 'initiated';
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS source           TEXT DEFAULT 'admin';
 ALTER TABLE admission_applications ADD COLUMN IF NOT EXISTS applicant_email  TEXT;

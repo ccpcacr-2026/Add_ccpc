@@ -147,21 +147,79 @@ async function sendOtpSms(phone, code, smsSettings) {
   }
 }
 
-// Fields an applicant is allowed to set — never trust arbitrary columns from the
-// client (no status/tracking_id/index_id/source injection).
-const ALLOWED_FIELDS = new Set([
-  'session', 'class', 'category', 'version', 'quota', 'nationality',
-  'name_english', 'name_bangla', 'date_of_birth', 'blood_group', 'religion',
-  'birth_reg_no', 'gender', 'emergency_contact', 'height', 'last_class',
-  'last_version', 'last_institute', 'present_address', 'permanent_address',
-  'co_curricular', 'student_photo',
-  'father_name', 'father_profession', 'father_designation', 'father_education',
-  'father_contact', 'father_nid', 'father_office_address', 'father_yearly_income', 'father_photo',
-  'mother_name', 'mother_profession', 'mother_designation', 'mother_education',
-  'mother_contact', 'mother_nid', 'mother_office_address', 'mother_yearly_income', 'mother_photo',
-  'guardian_name', 'guardian_profession', 'guardian_designation', 'guardian_education',
-  'guardian_contact', 'guardian_nid', 'guardian_relation', 'guardian_office_address', 'guardian_photo',
-]);
+// ── Admin-editable form fields ────────────────────────────────────────────
+// Canonical built-in field list — matches today's hardcoded form exactly
+// (same list seeded once into admission_settings.form_fields_json by
+// migration_form_fields.sql). The server reconciles whatever's actually
+// stored against THIS list on every read (loadFormFields below), so a
+// future code change that adds a real column can't silently vanish from
+// admin control just because nobody re-ran a migration's one-time INSERT.
+const BUILTIN_FORM_FIELDS = [
+  { key: 'name_english', label: "Student's name (English)", type: 'text', section: 'student', required: true, visible: true, built_in: true, wide: true, placeholder: 'As per birth certificate' },
+  { key: 'name_bangla', label: "Student's name (Bangla)", type: 'text', section: 'student', required: false, visible: true, built_in: true, wide: true, placeholder: 'নাম' },
+  { key: 'date_of_birth', label: 'Date of birth', type: 'date', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'], section: 'student', required: false, visible: true, built_in: true },
+  { key: 'blood_group', label: 'Blood group', type: 'text', section: 'student', required: false, visible: true, built_in: true, placeholder: 'e.g. B+' },
+  { key: 'religion', label: 'Religion', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'birth_reg_no', label: 'Birth registration no.', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'nationality', label: 'Nationality', type: 'text', default: 'Bangladeshi', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'emergency_contact', label: 'Emergency contact no.', type: 'text', section: 'student', required: false, visible: true, built_in: true, placeholder: '+8801…' },
+  { key: 'height', label: 'Height (inch)', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'last_class', label: 'Last class', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'last_version', label: 'Last version', type: 'text', section: 'student', required: false, visible: true, built_in: true },
+  { key: 'last_institute', label: 'Last institute', type: 'text', section: 'student', required: false, visible: true, built_in: true, wide: true },
+  { key: 'present_address', label: 'Present address', type: 'textarea', section: 'student', required: false, visible: true, built_in: true, wide: true },
+  { key: 'permanent_address', label: 'Permanent address', type: 'textarea', section: 'student', required: false, visible: true, built_in: true, wide: true },
+  { key: 'co_curricular', label: 'Co-curricular activities', type: 'text', section: 'student', required: false, visible: true, built_in: true, wide: true, placeholder: 'e.g. Football, Drawing, Singing' },
+  { key: 'student_photo', label: "Student's photo", type: 'photo', section: 'student', required: true, visible: true, built_in: true, wide: true },
+
+  { key: 'father_name', label: "Father's name", type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_profession', label: 'Profession / occupation', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_designation', label: 'Designation / rank', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_education', label: 'Education', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_contact', label: 'Contact no.', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_nid', label: 'NID', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_office_address', label: 'Office address / unit', type: 'text', section: 'father', required: false, visible: true, built_in: true, wide: true },
+  { key: 'father_yearly_income', label: 'Yearly income', type: 'text', section: 'father', required: false, visible: true, built_in: true },
+  { key: 'father_photo', label: "Father's photo", type: 'photo', section: 'father', required: false, visible: true, built_in: true, wide: true },
+
+  { key: 'mother_name', label: "Mother's name", type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_profession', label: 'Profession / occupation', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_designation', label: 'Designation / rank', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_education', label: 'Education', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_contact', label: 'Contact no.', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_nid', label: 'NID', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_office_address', label: 'Office address / unit', type: 'text', section: 'mother', required: false, visible: true, built_in: true, wide: true },
+  { key: 'mother_yearly_income', label: 'Yearly income', type: 'text', section: 'mother', required: false, visible: true, built_in: true },
+  { key: 'mother_photo', label: "Mother's photo", type: 'photo', section: 'mother', required: false, visible: true, built_in: true, wide: true },
+
+  { key: 'guardian_name', label: "Guardian's name", type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_relation', label: 'Relation', type: 'text', section: 'guardian', required: false, visible: true, built_in: true, placeholder: 'e.g. Father' },
+  { key: 'guardian_profession', label: 'Profession / occupation', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_designation', label: 'Designation / rank', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_education', label: 'Education', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_contact', label: 'Contact no.', type: 'text', section: 'guardian', required: false, visible: true, built_in: true },
+  { key: 'guardian_office_address', label: 'Office address / unit', type: 'text', section: 'guardian', required: false, visible: true, built_in: true, wide: true },
+  { key: 'guardian_nid', label: 'Guardian NID', type: 'text', section: 'guardian', required: false, visible: false, built_in: true },
+  { key: 'guardian_photo', label: "Guardian's photo", type: 'photo', section: 'guardian', required: false, visible: true, built_in: true, wide: true },
+];
+function reconcileFormFields(stored) {
+  const list = Array.isArray(stored) ? stored.slice() : [];
+  const seen = new Set(list.map(f => f && f.key));
+  BUILTIN_FORM_FIELDS.forEach(def => { if (!seen.has(def.key)) list.push({ ...def }); });
+  return list;
+}
+async function loadFormFields() {
+  const rows = await sb('admission_settings?key=eq.form_fields_json');
+  const stored = (Array.isArray(rows) && rows[0]) ? rows[0].value : [];
+  return reconcileFormFields(stored);
+}
+// Built-in keys write to a real column; everything else (admin-added
+// custom fields) routes into the extra_fields JSONB column instead —
+// never an arbitrary client-supplied key either way (no status/
+// tracking_id/index_id/source injection).
+function allowedBuiltInKeys(fields) { return new Set(fields.filter(f => f.built_in).map(f => f.key)); }
+function allowedCustomKeys(fields) { return new Set(fields.filter(f => !f.built_in).map(f => f.key)); }
 
 // Which bucket folder each photo field lands in (bucket "applicants" has
 // folders father / mother / applicants; student + guardian go under applicants).
@@ -179,10 +237,12 @@ export async function POST(req) {
   // which versions/categories are allowed. Applicants can only pick open combos.
   // If no circular classes are configured yet, fall back to every defined class.
   if (action === 'config') {
-    const rows = await sb(`admission_settings?key=in.(index_settings,circular_settings)`);
+    const rows = await sb(`admission_settings?key=in.(index_settings,circular_settings,form_fields_json)`);
     const arr = (rows && !rows.error && Array.isArray(rows)) ? rows : [];
     const idx  = (arr.find(r => r.key === 'index_settings')    || {}).value || {};
     const circ = (arr.find(r => r.key === 'circular_settings') || {}).value || {};
+    const formFields = reconcileFormFields((arr.find(r => r.key === 'form_fields_json') || {}).value)
+      .filter(f => f.visible !== false);
     const allClasses    = Object.keys(idx.classCodes || {});
     const allCategories = Object.keys(idx.categoryCodes || {});
     const openClasses = Array.isArray(circ.classes) ? circ.classes.filter(c => c && c.class) : [];
@@ -209,6 +269,7 @@ export async function POST(req) {
       circularTitle: circ.title || '',
       circularSession: circ.session || '',
       startDate: circ.startDate || '', endDate: circ.endDate || '',
+      formFields,
     });
   }
 
@@ -443,8 +504,21 @@ export async function POST(req) {
     if (!id) return NextResponse.json({ error: 'Missing application id.' });
     const form = payload.data || {};
     const LOCKED = new Set(['session', 'class', 'category', 'version', 'quota']); // fixed at initiate
+    const fields = await loadFormFields();
+    const builtInKeys = allowedBuiltInKeys(fields);
+    const customKeys = allowedCustomKeys(fields);
     const data = {};
-    for (const k of Object.keys(form)) if (ALLOWED_FIELDS.has(k) && !LOCKED.has(k)) data[k] = form[k];
+    const extra = {};
+    for (const k of Object.keys(form)) {
+      if (LOCKED.has(k)) continue;
+      if (builtInKeys.has(k)) data[k] = form[k];
+      else if (customKeys.has(k)) extra[k] = form[k];
+      // any other key (unknown/stale) is silently dropped — never trusted.
+    }
+    // The client sweeps every field's current value on every save (not an
+    // incremental diff), so this is a full replacement of extra_fields, not
+    // a read-merge-write — no lost-update race to guard against.
+    if (customKeys.size) data.extra_fields = extra;
     data.updated_at = new Date().toISOString();
     const q = `admission_applications?id=eq.${id}&${identityFilter(session)}&stage=eq.initiated`;
     const res = await fetch(`${SB_URL}/rest/v1/${q}`, {
@@ -465,13 +539,17 @@ export async function POST(req) {
     if (!session) return NextResponse.json({ error: 'Please sign in first.' }, { status: 401 });
     const id = parseInt(payload.id, 10);
     if (!id) return NextResponse.json({ error: 'Missing application id.' });
-    const rows = await sb(`admission_applications?id=eq.${id}&${identityFilter(session)}&select=id,stage,name_english,student_photo`);
+    const rows = await sb(`admission_applications?id=eq.${id}&${identityFilter(session)}&select=*`);
     const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
     if (!app) return NextResponse.json({ error: 'Application not found.' });
     if (app.stage !== 'initiated') return NextResponse.json({ error: 'This application is already submitted.' });
-    const missing = [];
-    if (!app.name_english) missing.push("applicant's name (English)");
-    if (!app.student_photo) missing.push("student photo");
+    const fields = await loadFormFields();
+    const extra = app.extra_fields || {};
+    const isEmpty = v => v == null || String(v).trim() === '';
+    const missing = fields
+      .filter(f => f.required && f.visible !== false)
+      .filter(f => isEmpty(f.built_in ? app[f.key] : extra[f.key]))
+      .map(f => f.label);
     if (missing.length) return NextResponse.json({ error: 'Please complete before submitting: ' + missing.join(', ') + '. (Use Save progress first.)' });
     const upd = await fetch(`${SB_URL}/rest/v1/admission_applications?id=eq.${id}&${identityFilter(session)}&stage=eq.initiated`, {
       method: 'PATCH',
@@ -543,9 +621,11 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Name, class and session are required.' });
     }
 
-    // Whitelist the fields the applicant may set.
+    // Whitelist the fields the applicant may set (built-in only — this path
+    // is legacy/superseded, not worth extending to admin-added custom fields).
+    const builtInKeys = new Set(BUILTIN_FORM_FIELDS.map(f => f.key));
     const data = {};
-    for (const k of Object.keys(form)) if (ALLOWED_FIELDS.has(k)) data[k] = form[k];
+    for (const k of Object.keys(form)) if (builtInKeys.has(k)) data[k] = form[k];
     Object.assign(data, identityColumns(session));
     data.source = 'applicant';
     data.status = 'Pending';

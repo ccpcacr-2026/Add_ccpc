@@ -359,6 +359,13 @@
           </div>
         </div>
 
+        <!-- Custom fields (admin-added, from the Form Fields tab) — read-only here;
+             edited only on the applicant's own form, not from this admin screen -->
+        <div id="custom-fields-block" class="hidden">
+          <p class="sec-lbl mb-3">Custom fields (from applicant's form)</p>
+          <div id="custom-fields-body" class="grid gap-3" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"></div>
+        </div>
+
       </div>
 
       <div class="mt-4 flex justify-end gap-3 flex-wrap">
@@ -389,6 +396,9 @@
         </button>
         <button class="atab" onclick="showAdminTab('at-form',this)">
           <i data-lucide="layout" class="h-3.5 w-3.5"></i> Form Designer
+        </button>
+        <button class="atab" onclick="showAdminTab('at-fields',this)">
+          <i data-lucide="list-checks" class="h-3.5 w-3.5"></i> Form Fields
         </button>
         <button class="atab" onclick="showAdminTab('at-admit',this)">
           <i data-lucide="id-card" class="h-3.5 w-3.5"></i> Admit Card
@@ -954,6 +964,23 @@
             </div>
           </div>
 
+        </div>
+      </div>
+
+      <!-- Tab: Form Fields (applicant "fill in" form editor) -->
+      <div id="at-fields" class="atab-panel hidden">
+        <div class="max-w-5xl mx-auto space-y-4">
+          <div class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-1">
+              <p class="sec-lbl">Applicant form fields</p>
+              <div class="flex gap-2">
+                <button class="nav-btn" onclick="addCustomField()">+ Add custom field</button>
+                <button class="nav-btn nav-btn-primary" onclick="saveFormFields()">💾 Save fields</button>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Controls what applicants see on the "fill in" step of the apply form — label, section (tab), required, order, and whether it shows at all. Built-in fields can be hidden or relabeled but not deleted; custom fields are stored separately per application and can be deleted freely.</p>
+            <div id="fields-editor-body" class="space-y-5"></div>
+          </div>
         </div>
       </div>
 

@@ -117,7 +117,26 @@ function initCanvas() {
   canvas.addEventListener('mousedown', function(e) {
     if (e.target === canvas) { fdSelect(null); }
   });
+  loadCustomFieldDefs();
   fdRender();
+}
+
+// Merges admin-added custom fields (Form Fields tab) into the field picker
+// so they can be dropped onto a print template too -- fetched fresh each
+// time the designer opens, since a field can be renamed/added/deleted
+// after the canvas was last shown.
+function loadCustomFieldDefs() {
+  if (typeof api !== 'function') return;
+  var groupByKey = {student:'Student', father:'Father', mother:'Mother', guardian:'Guardian'};
+  api('getFormFields').then(function(r) {
+    var fields = (r && r.fields) || [];
+    fields.filter(function(f){ return !f.built_in; }).forEach(function(f) {
+      FIELD_MAP[f.key] = f.label;
+      var grpName = groupByKey[f.section] || 'Student';
+      var grp = FIELD_GROUPS.filter(function(g){ return g.g === grpName; })[0];
+      if (grp && grp.keys.indexOf(f.key) === -1) grp.keys.push(f.key);
+    });
+  }).catch(function(){});
 }
 
 /* ── Render canvas ────────────────────────────────── */
@@ -198,6 +217,7 @@ function resolveTemplate(tpl, app) {
 function fv(app, field) {
   if (!field || field === '__static__') return '';
   var v = app ? app[field] : null;
+  if (v == null && app && app.extra_fields) v = app.extra_fields[field];
   if (v == null) return '[' + field + ']';
   if (field === 'date_of_birth' && typeof fmtDate === 'function') return fmtDate(v);
   return String(v);

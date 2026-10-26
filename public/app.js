@@ -146,6 +146,7 @@ function showAdminTab(id,btn){
   document.getElementById(id).classList.remove('hidden');btn.classList.add('active');
   if(id==='at-index')updateIndexPreview();
   if(id==='at-form'){if(typeof loadFormTemplates==='function')loadFormTemplates();else setTimeout(function(){initCanvas();fdZoomFit();},80);}
+  if(id==='at-fields')loadFormFieldsTab();
   if(id==='at-admit'){if(typeof loadAdmitTemplates==='function')loadAdmitTemplates();else setTimeout(updateAdmitPreview,100);}
   if(id==='at-counters')loadCounters();
   if(id==='at-circular')loadCircular();
@@ -333,6 +334,7 @@ function clearForm(){
   setV('f-version','Bangla');setV('f-quota','No');setV('f-status','Pending');setV('f-nationality','Bangladeshi');
   document.getElementById('academic-tbody').innerHTML='';addAcademicRow();addAcademicRow();addAcademicRow();
   document.getElementById('sibling-tbody').innerHTML='';
+  document.getElementById('custom-fields-block').classList.add('hidden');
   if(typeof lucide!=='undefined')lucide.createIcons();
 }
 function loadNewApplication(){
@@ -385,7 +387,29 @@ async function loadForm(id){
   document.getElementById('sibling-tbody').innerHTML='';
   const sibRows=Array.isArray(a.siblings)?a.siblings:[];
   sibRows.forEach(r=>addSiblingRow(r));
+  renderCustomFieldsBlock(a.extra_fields||{});
   document.querySelector('.ftab').click();
+}
+// Read-only dump of admin-added custom field answers -- editing them stays
+// on the applicant's own form (Form Fields tab controls the definitions,
+// not the answers); label lookup needs the current field list, fetched
+// fresh so a renamed/deleted custom field always shows its current label.
+async function renderCustomFieldsBlock(extra){
+  const block=document.getElementById('custom-fields-block');
+  const body=document.getElementById('custom-fields-body');
+  const keys=Object.keys(extra).filter(k=>extra[k]!=null&&extra[k]!=='');
+  if(!keys.length){block.classList.add('hidden');return;}
+  let labels={};
+  try{
+    const r=await api('getFormFields');
+    (r.fields||[]).forEach(f=>{labels[f.key]=f.label;});
+  }catch(e){}
+  body.innerHTML=keys.map(k=>`
+    <div class="bg-slate-50 rounded-lg p-2.5">
+      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide">${_esc(labels[k]||k)}</p>
+      <p class="text-sm text-slate-700 mt-0.5">${_esc(String(extra[k]))}</p>
+    </div>`).join('');
+  block.classList.remove('hidden');
 }
 function collectForm(){
   return {
@@ -1571,6 +1595,101 @@ async function sendTestSms(){
   const r=await fetch('/api/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'requestOtp',payload:{phone}})}).then(x=>x.json());
   if(r.error){note.textContent=r.error;return;}
   note.textContent=r.devCode?('Not sent — gateway unconfigured. Test code: '+r.devCode):'Sent — check the phone.';
+}
+
+// ── Form Fields editor (applicant "fill in" form) ──────────────────────────
+function _esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let _fieldsState=[];
+const FIELDS_SECTION_ORDER=['student','father','mother','guardian'];
+const FIELDS_SECTION_LABELS={student:'Student',father:'Father',mother:'Mother',guardian:'Guardian'};
+const CUSTOM_FIELD_TYPES=['text','textarea','date','number','select'];
+async function loadFormFieldsTab(){
+  const host=document.getElementById('fields-editor-body');
+  host.innerHTML='<p class="text-xs text-slate-400">Loading…</p>';
+  const r=await api('getFormFields');
+  if(r.error){host.innerHTML=`<p class="text-xs text-red-500">${_esc(r.error)}</p>`;return;}
+  _fieldsState=r.fields||[];
+  renderFieldsEditor();
+}
+function renderFieldsEditor(){
+  const host=document.getElementById('fields-editor-body');
+  host.innerHTML=FIELDS_SECTION_ORDER.map(sec=>{
+    const fields=_fieldsState.filter(f=>f.section===sec);
+    return `<div>
+      <p class="text-xs font-black text-slate-500 uppercase tracking-wide mb-2">${FIELDS_SECTION_LABELS[sec]}</p>
+      <div class="space-y-2">${fields.map(fieldRowHtml).join('')||'<p class="text-xs text-slate-300">No fields in this section.</p>'}</div>
+    </div>`;
+  }).join('');
+}
+function fieldRowHtml(f){
+  const sectionOptions=FIELDS_SECTION_ORDER.map(s=>`<option value="${s}" ${f.section===s?'selected':''}>${FIELDS_SECTION_LABELS[s]}</option>`).join('');
+  const typeCell=f.built_in
+    ? `<span class="text-[11px] text-slate-400">${_esc(f.type)}${f.type==='photo'?' (fixed)':''}</span>`
+    : `<select class="finput finput-sm" style="width:100px" onchange="updateFieldProp('${f.key}','type',this.value)">${CUSTOM_FIELD_TYPES.map(t=>`<option value="${t}" ${f.type===t?'selected':''}>${t}</option>`).join('')}</select>`;
+  const optionsCell=(!f.built_in&&f.type==='select')
+    ? `<input class="finput finput-sm mt-1" style="width:100%" placeholder="Comma-separated options" value="${_esc((f.options||[]).join(', '))}" onchange="updateFieldProp('${f.key}','options', this.value.split(',').map(s=>s.trim()).filter(Boolean))">`
+    : '';
+  const rightCell=f.built_in
+    ? `<label class="flex items-center gap-1 text-[11px] text-slate-500 whitespace-nowrap"><input type="checkbox" ${f.visible!==false?'checked':''} onchange="updateFieldProp('${f.key}','visible',this.checked)"> Visible</label>`
+    : `<button class="nav-btn nav-btn-danger" style="padding:4px 8px" onclick="deleteCustomField('${f.key}')">Delete</button>`;
+  return `<div class="flex items-start gap-2 border border-slate-100 rounded-xl p-2.5">
+    <div class="flex flex-col gap-0.5">
+      <button class="nav-btn" style="padding:2px 6px;font-size:10px" onclick="moveField('${f.key}',-1)">↑</button>
+      <button class="nav-btn" style="padding:2px 6px;font-size:10px" onclick="moveField('${f.key}',1)">↓</button>
+    </div>
+    <div class="flex-1 grid gap-2" style="grid-template-columns:2fr 1fr 1fr">
+      <div>
+        <input class="finput finput-sm" value="${_esc(f.label)}" onchange="updateFieldProp('${f.key}','label',this.value)">
+        ${optionsCell}
+      </div>
+      <select class="finput finput-sm" onchange="changeFieldSection('${f.key}', this.value)">${sectionOptions}</select>
+      ${typeCell}
+    </div>
+    <label class="flex items-center gap-1 text-[11px] text-slate-500 self-center whitespace-nowrap"><input type="checkbox" ${f.required?'checked':''} onchange="updateFieldProp('${f.key}','required',this.checked)"> Required</label>
+    ${rightCell}
+  </div>`;
+}
+function updateFieldProp(key,prop,val){
+  const f=_fieldsState.find(x=>x.key===key);
+  if(f)f[prop]=val;
+}
+function changeFieldSection(key,newSection){
+  const idx=_fieldsState.findIndex(x=>x.key===key);
+  if(idx<0)return;
+  const [f]=_fieldsState.splice(idx,1);
+  f.section=newSection;
+  _fieldsState.push(f); // appended last overall -> last within its new section's group too
+  renderFieldsEditor();
+}
+function moveField(key,dir){
+  const arr=_fieldsState;
+  const idx=arr.findIndex(f=>f.key===key);
+  if(idx<0)return;
+  const sec=arr[idx].section;
+  let j=idx+dir;
+  while(j>=0&&j<arr.length&&arr[j].section!==sec)j+=dir;
+  if(j<0||j>=arr.length)return;
+  [arr[idx],arr[j]]=[arr[j],arr[idx]];
+  renderFieldsEditor();
+}
+function addCustomField(){
+  const key='custom_'+Math.random().toString(36).slice(2,10);
+  _fieldsState.push({key,label:'New field',type:'text',section:'student',required:false,visible:true,built_in:false});
+  renderFieldsEditor();
+}
+function deleteCustomField(key){
+  const f=_fieldsState.find(x=>x.key===key);
+  if(!f||f.built_in)return;
+  if(!confirm('Delete this custom field? Any answers already saved under it will no longer show anywhere.'))return;
+  _fieldsState=_fieldsState.filter(x=>x.key!==key);
+  renderFieldsEditor();
+}
+async function saveFormFields(){
+  setLoading(true);
+  const r=await api('saveFormFields',{fields:_fieldsState});
+  setLoading(false);
+  if(r.error){toast(r.error,'error');return;}
+  toast('Form fields saved','success');
 }
 
 // ── QR camera scanning ────────────────────────────────────────────────────

@@ -176,67 +176,17 @@
           </div>
         </div>
 
-        <!-- STEP 2: the form (save progress any time, then submit) -->
+        <!-- STEP 2: the form (saves automatically as you type, section by section) -->
         <div id="step-fill" class="hidden">
         <div id="combo-bar"></div>
+        <div class="tabbar" id="fill-tabs"></div>
         <form id="app-form" onsubmit="submitFinalApp(event)">
-          <div class="grid">
-            <div class="sec full">Applicant's Information</div>
-            <div class="full"><label>Student's name (English)</label><input id="f-name_english" required placeholder="As per birth certificate" /></div>
-            <div class="full"><label>Student's name (Bangla)</label><input id="f-name_bangla" placeholder="নাম" /></div>
-            <div><label>Date of birth</label><input id="f-date_of_birth" type="date" /></div>
-            <div><label>Gender</label><select id="f-gender"><option value="">—</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-            <div><label>Blood group</label><input id="f-blood_group" placeholder="e.g. B+" /></div>
-            <div><label>Religion</label><input id="f-religion" /></div>
-            <div><label>Birth registration no.</label><input id="f-birth_reg_no" /></div>
-            <div><label>Nationality</label><input id="f-nationality" value="Bangladeshi" /></div>
-            <div><label>Emergency contact no.</label><input id="f-emergency_contact" placeholder="+8801…" /></div>
-            <div><label>Height (inch)</label><input id="f-height" /></div>
-            <div><label>Last class</label><input id="f-last_class" /></div>
-            <div><label>Last version</label><input id="f-last_version" /></div>
-            <div class="full"><label>Last institute</label><input id="f-last_institute" /></div>
-            <div class="full"><label>Present address</label><textarea id="f-present_address" rows="2"></textarea></div>
-            <div class="full"><label>Permanent address</label><textarea id="f-permanent_address" rows="2"></textarea></div>
-            <div class="full"><label>Co-curricular activities</label><input id="f-co_curricular" placeholder="e.g. Football, Drawing, Singing" /></div>
-            <div class="full photo-field"><label>Student's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-student_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('student_photo', this)" /><span id="ph-student_photo-status" class="note"></span></div></div>
-
-            <div class="sec full">Father's Details</div>
-            <div><label>Father's name</label><input id="f-father_name" /></div>
-            <div><label>Profession / occupation</label><input id="f-father_profession" /></div>
-            <div><label>Designation / rank</label><input id="f-father_designation" /></div>
-            <div><label>Education</label><input id="f-father_education" /></div>
-            <div><label>Contact no.</label><input id="f-father_contact" /></div>
-            <div><label>NID</label><input id="f-father_nid" /></div>
-            <div class="full"><label>Office address / unit</label><input id="f-father_office_address" /></div>
-            <div><label>Yearly income</label><input id="f-father_yearly_income" /></div>
-            <div class="full photo-field"><label>Father's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-father_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('father_photo', this)" /><span id="ph-father_photo-status" class="note"></span></div></div>
-
-            <div class="sec full">Mother's Details</div>
-            <div><label>Mother's name</label><input id="f-mother_name" /></div>
-            <div><label>Profession / occupation</label><input id="f-mother_profession" /></div>
-            <div><label>Designation / rank</label><input id="f-mother_designation" /></div>
-            <div><label>Education</label><input id="f-mother_education" /></div>
-            <div><label>Contact no.</label><input id="f-mother_contact" /></div>
-            <div><label>NID</label><input id="f-mother_nid" /></div>
-            <div class="full"><label>Office address / unit</label><input id="f-mother_office_address" /></div>
-            <div><label>Yearly income</label><input id="f-mother_yearly_income" /></div>
-            <div class="full photo-field"><label>Mother's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-mother_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('mother_photo', this)" /><span id="ph-mother_photo-status" class="note"></span></div></div>
-
-            <div class="sec full">Local Guardian's Details</div>
-            <div><label>Guardian's name</label><input id="f-guardian_name" /></div>
-            <div><label>Relation</label><input id="f-guardian_relation" placeholder="e.g. Father" /></div>
-            <div><label>Profession / occupation</label><input id="f-guardian_profession" /></div>
-            <div><label>Designation / rank</label><input id="f-guardian_designation" /></div>
-            <div><label>Education</label><input id="f-guardian_education" /></div>
-            <div><label>Contact no.</label><input id="f-guardian_contact" /></div>
-            <div class="full"><label>Office address / unit</label><input id="f-guardian_office_address" /></div>
-            <div class="full photo-field"><label>Guardian's photo (image, ≤130 KB)</label><div class="photo-row"><img id="ph-guardian_photo-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('guardian_photo', this)" /><span id="ph-guardian_photo-status" class="note"></span></div></div>
-          </div>
+          <div id="fill-sections"></div>
           <p class="terms">By submitting, I agree to the terms, rules &amp; fee structure of Chattogram Cantonment Public College and its admission selection system as described in the admission notice.</p>
           <div class="row" style="margin-top:14px">
-            <button type="button" class="btn btn-ghost" id="save-btn" onclick="saveProgress()">Save progress</button>
+            <button type="button" class="btn btn-ghost" id="save-btn" onclick="saveProgress()">Save now</button>
             <button type="submit" class="btn btn-accent" id="submit-btn">Submit application</button>
-            <span class="note" id="save-note">Your progress is saved on this application — you can come back anytime before submitting.</span>
+            <span class="note" id="save-note">Saves automatically as you type — you can come back anytime before submitting.</span>
           </div>
         </form>
         </div>
@@ -302,6 +252,7 @@ async function boot(){
   fillSelect('f-session', CFG.sessions);
   fillSelect('f-class', CFG.classes, true);
   onClassChange(); // reset version/category to "pick a class first"
+  renderFillForm(CFG.formFields || []);
   const me = await api('me');
   if (me.authed) enterApp(me); else { showSignedOut(); initGoogle(); }
 }
@@ -472,9 +423,96 @@ async function handlePhoto(field, inputEl){
   } catch (e) { st.textContent = 'Could not process that image.'; }
 }
 
-const FORM_FIELDS = ['session','class','category','version','quota','name_english','name_bangla','date_of_birth','gender','blood_group','religion','birth_reg_no','nationality','emergency_contact','height','last_class','last_version','last_institute','present_address','permanent_address','co_curricular','father_name','father_profession','father_designation','father_education','father_contact','father_nid','father_office_address','father_yearly_income','mother_name','mother_profession','mother_designation','mother_education','mother_contact','mother_nid','mother_office_address','mother_yearly_income','guardian_name','guardian_relation','guardian_profession','guardian_designation','guardian_education','guardian_contact','guardian_office_address'];
+// ── Admin-editable form fields — the whole #step-fill body (sections AND
+// tabs) is rendered from this list, not static markup, so admin add/
+// remove/reorder/relabel/require all just work without touching this
+// file again. LOCKED_FIELDS (the step-1 combo) is separate and static —
+// it's locked at initiate and never part of this editable system.
+let FORM_FIELDS_DEF = [];
 const LOCKED_FIELDS = ['session','class','category','version','quota']; // fixed at initiate
-const PHOTO_FIELDS = ['student_photo','father_photo','mother_photo','guardian_photo'];
+const SECTION_TITLES = { student:"Applicant's Information", father:"Father's Details", mother:"Mother's Details", guardian:"Local Guardian's Details" };
+const SECTION_TAB_LABELS = { student:'Student', father:'Father', mother:'Mother', guardian:'Guardian' };
+
+function fieldInputHtml(f){
+  const req = f.required ? ' required' : '';
+  const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : '';
+  if (f.type === 'textarea') return `<textarea id="f-${f.key}" rows="2"${req}></textarea>`;
+  if (f.type === 'date') return `<input id="f-${f.key}" type="date"${req} />`;
+  if (f.type === 'number') return `<input id="f-${f.key}" type="number"${req}${ph} />`;
+  if (f.type === 'select') return `<select id="f-${f.key}"${req}><option value="">—</option>${(f.options||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
+  if (f.type === 'photo') return `<div class="photo-row"><img id="ph-${f.key}-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('${f.key}', this)" /><span id="ph-${f.key}-status" class="note"></span></div>`;
+  return `<input id="f-${f.key}" type="text"${req}${ph} />`;
+}
+function fieldBlockHtml(f){
+  const wide = (f.wide || f.type==='textarea' || f.type==='photo') ? ' full' : '';
+  const photoClass = f.type==='photo' ? ' photo-field' : '';
+  const label = f.type==='photo' ? `${esc(f.label)} (image, ≤130 KB)` : esc(f.label);
+  return `<div class="${wide}${photoClass}"><label>${label}</label>${fieldInputHtml(f)}</div>`;
+}
+// Tabs fall out of this as a byproduct — one per distinct section among
+// the currently visible fields, in the order fields appear — rather than
+// being a separate structure to keep in sync by hand.
+function renderFillForm(fields){
+  FORM_FIELDS_DEF = (fields||[]).filter(f=>f.visible!==false);
+  const sections = [];
+  FORM_FIELDS_DEF.forEach(f=>{ if(!sections.includes(f.section)) sections.push(f.section); });
+  const tabsHost = document.getElementById('fill-tabs');
+  const secHost = document.getElementById('fill-sections');
+  if (!tabsHost || !secHost) return;
+  tabsHost.innerHTML = sections.map((s,i)=>`<button type="button" class="${i===0?'on':''}" onclick="showFillSection('fsec-${s}',this)">${esc(SECTION_TAB_LABELS[s]||s)}</button>`).join('');
+  secHost.innerHTML = sections.map((s,i)=>{
+    const secFields = FORM_FIELDS_DEF.filter(f=>f.section===s);
+    return `<div id="fsec-${s}" class="${i===0?'':'hidden'}"><div class="sec full" style="margin-bottom:14px">${esc(SECTION_TITLES[s]||s)}</div><div class="grid">${secFields.map(fieldBlockHtml).join('')}</div></div>`;
+  }).join('');
+  if (currentApp) applyAppToFields(currentApp); // re-render kept an in-progress draft's values
+}
+// Sections stay in the DOM always (hidden via CSS, never unmounted) —
+// switching tabs must never lose in-progress input in a hidden section,
+// and the autosave sweep below needs to read every field regardless of
+// which tab is currently showing.
+function showFillSection(id, btn){
+  document.querySelectorAll('#fill-sections > div').forEach(el=>el.classList.add('hidden'));
+  document.querySelectorAll('#fill-tabs button').forEach(el=>el.classList.remove('on'));
+  document.getElementById(id).classList.remove('hidden'); btn.classList.add('on');
+}
+
+function clearFormFields(){
+  FORM_FIELDS_DEF.forEach(f=>{
+    if (f.type === 'photo') return;
+    const el = document.getElementById('f-'+f.key); if (el) el.value = (f.default != null ? f.default : '');
+  });
+  FORM_FIELDS_DEF.filter(f=>f.type==='photo').forEach(f=>{
+    delete photoUrls[f.key];
+    const im = document.getElementById('ph-'+f.key+'-img'); if (im) { im.src=''; im.style.display='none'; }
+    const st = document.getElementById('ph-'+f.key+'-status'); if (st) st.textContent='';
+  });
+  hasUnsavedChanges = false;
+}
+function collectDraft(){
+  const data = {};
+  FORM_FIELDS_DEF.forEach(f=>{
+    if (f.type === 'photo') { if (photoUrls[f.key]) data[f.key] = photoUrls[f.key]; return; }
+    const el = document.getElementById('f-'+f.key); if (el) data[f.key] = String(el.value).trim();
+  });
+  return data;
+}
+// Pulls a loaded application's values (built-in columns or extra_fields,
+// whichever the field definition says) into the rendered inputs — used
+// both when resuming a saved draft and right after the field list itself
+// re-renders (e.g. after the admin changes it) while a draft is open.
+function applyAppToFields(a){
+  const extra = a.extra_fields || {};
+  FORM_FIELDS_DEF.forEach(f=>{
+    const val = f.built_in ? a[f.key] : extra[f.key];
+    if (f.type === 'photo') {
+      const st = document.getElementById('ph-'+f.key+'-status'); const im = document.getElementById('ph-'+f.key+'-img');
+      if (val) { photoUrls[f.key]=val; if(im){im.src=val;im.style.display='block';} if(st)st.textContent='✓ uploaded'; }
+      else { delete photoUrls[f.key]; if(im){im.src='';im.style.display='none';} if(st)st.textContent=''; }
+      return;
+    }
+    const el = document.getElementById('f-'+f.key); if (el) el.value = val==null ? '' : val;
+  });
+}
 
 const payApi = async (action, payload={}) => {
   const r = await fetch('/api/pay', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action, payload}) });
@@ -482,7 +520,22 @@ const payApi = async (action, payload={}) => {
 };
 
 let currentApp = null;   // the application being worked on in the stepper
-let formDirty = false;
+let hasUnsavedChanges = false;
+let saveTimer = null;
+let saveInFlight = null;
+const AUTOSAVE_DELAY_MS = 900;
+
+// Event delegation on #fill-sections -- fields are built at runtime by
+// renderFillForm(), so a single listener on the container (attached once,
+// here) covers every current and future field instead of one per input.
+document.getElementById('fill-sections').addEventListener('input', scheduleAutosave);
+function scheduleAutosave(){
+  if (!currentApp || currentApp.stage !== 'initiated') return;
+  hasUnsavedChanges = true;
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>{ saveTimer = null; saveProgress(true); }, AUTOSAVE_DELAY_MS);
+}
+window.addEventListener('beforeunload', e=>{ if (hasUnsavedChanges){ e.preventDefault(); e.returnValue=''; } });
 
 function gotoStep(n){
   document.getElementById('step-select').classList.toggle('hidden', n!==1);
@@ -540,32 +593,25 @@ async function initiateApp(){
   document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
-function clearFormFields(){
-  FORM_FIELDS.forEach(k=>{ if(LOCKED_FIELDS.includes(k))return; const el=document.getElementById('f-'+k); if(el) el.value = (k==='nationality'?'Bangladeshi':''); });
-  PHOTO_FIELDS.forEach(f=>{ delete photoUrls[f]; const im=document.getElementById('ph-'+f+'-img'); if(im){im.src='';im.style.display='none';} const st=document.getElementById('ph-'+f+'-status'); if(st)st.textContent=''; });
-  formDirty=false;
-}
-function collectDraft(){
-  const data = {};
-  FORM_FIELDS.forEach(k=>{ if(LOCKED_FIELDS.includes(k))return; const el=document.getElementById('f-'+k); if(el) data[k]=String(el.value).trim(); });
-  PHOTO_FIELDS.forEach(f=>{ if(photoUrls[f]) data[f]=photoUrls[f]; });
-  return data;
-}
-
 // ── STEP 2: save progress ─────────────────────────────────────────────────────
+// Single shared debounce (scheduleAutosave, defined earlier) + this
+// in-flight guard cover both the typing-triggered path and the manual
+// "Save now" button — both call this same function.
 async function saveProgress(silent=false){
   if (!currentApp) return;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   const note = document.getElementById('save-note');
   if (!silent) note.textContent = 'Saving…';
-  const r = await api('saveDraft', { id: currentApp.id, data: collectDraft() });
+  if (saveInFlight) { try { await saveInFlight; } catch(e){} }
+  const task = api('saveDraft', { id: currentApp.id, data: collectDraft() });
+  saveInFlight = task;
+  const r = await task;
+  if (saveInFlight === task) saveInFlight = null;
   if (r.error) { if(!silent) msg(r.error); return false; }
-  formDirty = false;
+  hasUnsavedChanges = false;
   note.textContent = 'Saved ' + new Date().toLocaleTimeString();
   return true;
 }
-// autosave every 60s while filling
-setInterval(()=>{ if (formDirty && currentApp && currentApp.stage==='initiated') saveProgress(true); }, 60000);
-window.addEventListener('beforeunload', e=>{ if (formDirty && currentApp && currentApp.stage==='initiated'){ e.preventDefault(); e.returnValue=''; } });
 
 // ── STEP 3: final submit ──────────────────────────────────────────────────────
 async function submitFinalApp(e){
@@ -650,13 +696,8 @@ function resumeApp(a){
   showTab('new');
   document.getElementById('submit-result').innerHTML = '';
   if (a.stage === 'initiated') {
-    FORM_FIELDS.forEach(k=>{ if(LOCKED_FIELDS.includes(k))return; const el=document.getElementById('f-'+k); if(el) el.value = a[k]==null?'':a[k]; });
-    PHOTO_FIELDS.forEach(f=>{
-      const st=document.getElementById('ph-'+f+'-status'); const im=document.getElementById('ph-'+f+'-img');
-      if (a[f]) { photoUrls[f]=a[f]; if(im){im.src=a[f];im.style.display='block';} if(st)st.textContent='✓ uploaded'; }
-      else { delete photoUrls[f]; if(im){im.src='';im.style.display='none';} if(st)st.textContent=''; }
-    });
-    formDirty = false;
+    applyAppToFields(a);
+    hasUnsavedChanges = false;
     document.getElementById('submit-result').innerHTML = ticketHtml(a);
     document.getElementById('combo-bar').innerHTML = comboChips(a);
     gotoStep(2);
