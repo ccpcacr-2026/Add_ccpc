@@ -95,6 +95,27 @@
   .pill.initiated{background:#e8f0fb;color:#1e4f8a}
   .pill.submitted{background:#ede9fe;color:#6d28d9}
   .pill.none{background:var(--paper);color:var(--muted)}
+
+  /* fill-in UX: progress, tab badges, inline errors, quick-fill */
+  .req-star{color:var(--danger)}
+  .link-btn{background:none;border:none;color:var(--navy-2);font-weight:700;font-size:11px;cursor:pointer;text-transform:none;letter-spacing:0;padding:0;margin-left:6px;text-decoration:underline}
+  .field-err{border-color:var(--danger) !important;box-shadow:0 0 0 3px rgba(192,57,43,.12) !important}
+  .photo-field.field-err{outline:2px solid var(--danger);outline-offset:4px;border-radius:10px}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin:-6px 0 16px}
+  .progress-track{flex:1;height:7px;border-radius:999px;background:var(--line);overflow:hidden}
+  .progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--navy-2));border-radius:999px;transition:width .25s ease}
+  #fill-progress-pct{white-space:nowrap;font-weight:700}
+  .tab-badge{display:inline-block;min-width:16px;padding:1px 6px;border-radius:999px;font-size:10px;font-weight:800;background:rgba(0,0,0,.08);margin-left:4px}
+  .tabbar button.on .tab-badge{background:rgba(255,255,255,.25)}
+  .tab-badge.done{background:var(--ok-soft);color:var(--accent-ink)}
+  .tab-badge.warn{background:var(--danger-soft);color:var(--danger)}
+  .copy-row{align-items:center}
+  .save-status{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted)}
+  .save-status .dot{width:7px;height:7px;border-radius:50%;background:var(--line)}
+  .save-status.saving .dot{background:var(--gold);animation:pulse 1s infinite}
+  .save-status.saved .dot{background:var(--accent)}
+  .save-status.err .dot{background:var(--danger)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 </style>
 </head>
 <body>
@@ -180,6 +201,11 @@
         <div id="step-fill" class="hidden">
         <div id="combo-bar"></div>
         <div class="tabbar" id="fill-tabs"></div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill" id="fill-progress-bar"></div></div>
+          <span class="note" id="fill-progress-pct">0% complete</span>
+          <span class="save-status" id="save-status"><span class="dot"></span><span id="save-status-text">Not saved yet</span></span>
+        </div>
         <form id="app-form" onsubmit="submitFinalApp(event)">
           <div id="fill-sections"></div>
           <p class="terms">By submitting, I agree to the terms, rules &amp; fee structure of Chattogram Cantonment Public College and its admission selection system as described in the admission notice.</p>
@@ -434,20 +460,47 @@ const SECTION_TITLES = { student:"Applicant's Information", father:"Father's Det
 const SECTION_TAB_LABELS = { student:'Student', father:'Father', mother:'Mother', guardian:'Guardian' };
 
 function fieldInputHtml(f){
-  const req = f.required ? ' required' : '';
   const ph = f.placeholder ? ` placeholder="${esc(f.placeholder)}"` : '';
-  if (f.type === 'textarea') return `<textarea id="f-${f.key}" rows="2"${req}></textarea>`;
-  if (f.type === 'date') return `<input id="f-${f.key}" type="date"${req} />`;
-  if (f.type === 'number') return `<input id="f-${f.key}" type="number"${req}${ph} />`;
-  if (f.type === 'select') return `<select id="f-${f.key}"${req}><option value="">—</option>${(f.options||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
+  const isPhone = /_contact$/.test(f.key);
+  const isNid = /_nid$/.test(f.key);
+  if (f.type === 'textarea') return `<textarea id="f-${f.key}" rows="2"></textarea>`;
+  if (f.type === 'date') return `<input id="f-${f.key}" type="date" max="${new Date().toISOString().slice(0,10)}" />`;
+  if (f.type === 'number') return `<input id="f-${f.key}" type="number"${ph} />`;
+  if (f.type === 'select') return `<select id="f-${f.key}"><option value="">—</option>${(f.options||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;
   if (f.type === 'photo') return `<div class="photo-row"><img id="ph-${f.key}-img" class="photo-prev" alt="" /><input type="file" accept="image/*" onchange="handlePhoto('${f.key}', this)" /><span id="ph-${f.key}-status" class="note"></span></div>`;
-  return `<input id="f-${f.key}" type="text"${req}${ph} />`;
+  // Phone/NID fields self-format as you type — strips anything that can't
+  // belong in the number instead of rejecting the keystroke, so paste works too.
+  if (isPhone) return `<input id="f-${f.key}" type="tel" inputmode="numeric"${ph || ' placeholder="01XXXXXXXXX"'} oninput="this.value=this.value.replace(/[^0-9+]/g,'')" maxlength="14" />`;
+  if (isNid) return `<input id="f-${f.key}" type="text" inputmode="numeric"${ph || ' placeholder="10/13/17-digit NID"'} oninput="this.value=this.value.replace(/[^0-9]/g,'')" maxlength="17" />`;
+  return `<input id="f-${f.key}" type="text"${ph} />`;
 }
 function fieldBlockHtml(f){
   const wide = (f.wide || f.type==='textarea' || f.type==='photo') ? ' full' : '';
   const photoClass = f.type==='photo' ? ' photo-field' : '';
   const label = f.type==='photo' ? `${esc(f.label)} (image, ≤130 KB)` : esc(f.label);
-  return `<div class="${wide}${photoClass}"><label>${label}</label>${fieldInputHtml(f)}</div>`;
+  const star = f.required ? ' <span class="req-star">*</span>' : '';
+  const sameAs = f.key==='permanent_address' ? ` <button type="button" class="link-btn" onclick="copyField('present_address','permanent_address')">Same as present address</button>` : '';
+  return `<div class="${wide}${photoClass}" id="fb-${f.key}"><label>${label}${star}${sameAs}</label>${fieldInputHtml(f)}</div>`;
+}
+// Copies one field's value into another (e.g. "same as present address").
+function copyField(srcKey, destKey){
+  const src = document.getElementById('f-'+srcKey), dest = document.getElementById('f-'+destKey);
+  if (!src || !dest) return;
+  dest.value = src.value;
+  updateProgress(); scheduleAutosave();
+}
+// Guardian's details are very often identical to a parent's — one click
+// instead of retyping name/profession/designation/education/contact/office.
+const GUARDIAN_COPY_MAP = { guardian_name:'_name', guardian_profession:'_profession', guardian_designation:'_designation', guardian_education:'_education', guardian_contact:'_contact', guardian_office_address:'_office_address' };
+function copyGuardianFrom(who){
+  Object.entries(GUARDIAN_COPY_MAP).forEach(([destKey, suffix])=>{
+    const src = document.getElementById('f-'+who+suffix), dest = document.getElementById('f-'+destKey);
+    if (src && dest) dest.value = src.value;
+  });
+  const rel = document.getElementById('f-guardian_relation');
+  if (rel && !rel.value.trim()) rel.value = who==='father' ? 'Father' : 'Mother';
+  updateProgress(); scheduleAutosave();
+  msg(`Copied ${who}'s details into Guardian.`, 'ok');
 }
 // Tabs fall out of this as a byproduct — one per distinct section among
 // the currently visible fields, in the order fields appear — rather than
@@ -459,12 +512,67 @@ function renderFillForm(fields){
   const tabsHost = document.getElementById('fill-tabs');
   const secHost = document.getElementById('fill-sections');
   if (!tabsHost || !secHost) return;
-  tabsHost.innerHTML = sections.map((s,i)=>`<button type="button" class="${i===0?'on':''}" onclick="showFillSection('fsec-${s}',this)">${esc(SECTION_TAB_LABELS[s]||s)}</button>`).join('');
+  tabsHost.innerHTML = sections.map((s,i)=>`<button type="button" data-sec="${s}" class="${i===0?'on':''}" onclick="showFillSection('fsec-${s}',this)">${esc(SECTION_TAB_LABELS[s]||s)}<span class="tab-badge" data-sec="${s}"></span></button>`).join('');
   secHost.innerHTML = sections.map((s,i)=>{
     const secFields = FORM_FIELDS_DEF.filter(f=>f.section===s);
-    return `<div id="fsec-${s}" class="${i===0?'':'hidden'}"><div class="sec full" style="margin-bottom:14px">${esc(SECTION_TITLES[s]||s)}</div><div class="grid">${secFields.map(fieldBlockHtml).join('')}</div></div>`;
+    const copyRow = s==='guardian' ? `<div class="row copy-row" style="margin-bottom:12px"><span class="note">Quick fill:</span><button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="copyGuardianFrom('father')">Same as father</button><button type="button" class="btn btn-ghost" style="padding:7px 12px;font-size:12px" onclick="copyGuardianFrom('mother')">Same as mother</button></div>` : '';
+    return `<div id="fsec-${s}" class="${i===0?'':'hidden'}"><div class="sec full" style="margin-bottom:14px">${esc(SECTION_TITLES[s]||s)}</div>${copyRow}<div class="grid">${secFields.map(fieldBlockHtml).join('')}</div></div>`;
   }).join('');
   if (currentApp) applyAppToFields(currentApp); // re-render kept an in-progress draft's values
+  updateProgress();
+}
+// Single source of truth for "is this field filled" — used by the progress
+// bar, the blur-highlight, and the tab-aware submit validation below.
+function isFieldFilled(f){
+  if (f.type === 'photo') return !!photoUrls[f.key];
+  const el = document.getElementById('f-'+f.key);
+  return !!(el && String(el.value).trim() !== '');
+}
+function updateProgress(){
+  if (!FORM_FIELDS_DEF.length) return;
+  const sections = [];
+  FORM_FIELDS_DEF.forEach(f=>{ if(!sections.includes(f.section)) sections.push(f.section); });
+  let totalFilled = 0;
+  sections.forEach(s=>{
+    const fields = FORM_FIELDS_DEF.filter(f=>f.section===s);
+    let filled = 0, missingRequired = false;
+    fields.forEach(f=>{ const ok = isFieldFilled(f); if (ok) filled++; if (f.required && !ok) missingRequired = true; });
+    totalFilled += filled;
+    const badge = document.querySelector(`.tab-badge[data-sec="${s}"]`);
+    if (!badge) return;
+    badge.textContent = missingRequired ? '!' : (filled===fields.length ? '✓' : `${filled}/${fields.length}`);
+    badge.classList.toggle('warn', missingRequired);
+    badge.classList.toggle('done', !missingRequired && filled===fields.length);
+  });
+  const pct = Math.round(100 * totalFilled / FORM_FIELDS_DEF.length);
+  const bar = document.getElementById('fill-progress-bar'), pctEl = document.getElementById('fill-progress-pct');
+  if (bar) bar.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '% complete';
+}
+// Marks a field as the problem on submit: switches to its tab, scrolls to
+// it, focuses it (inputs) or outlines it (the photo block), and flashes a
+// red highlight — works even though the field's tab isn't the active one.
+function focusField(f){
+  const tabBtn = document.querySelector(`#fill-tabs button[data-sec="${f.section}"]`);
+  if (tabBtn) showFillSection('fsec-'+f.section, tabBtn);
+  const wrap = document.getElementById('fb-'+f.key);
+  const target = f.type==='photo' ? wrap : document.getElementById('f-'+f.key);
+  if (wrap) wrap.scrollIntoView({ behavior:'smooth', block:'center' });
+  if (target) {
+    target.classList.add('field-err');
+    if (typeof target.focus === 'function') target.focus();
+    setTimeout(()=>target.classList.remove('field-err'), 2500);
+  }
+}
+// Native `required` can't be trusted here — the field it flags may be on a
+// tab that's hidden (display:none), which makes some browsers block the
+// submit event entirely with no visible error. So required is enforced
+// only in JS, across every tab, with a clear pointer to what's missing.
+function validateFormFields(){
+  for (const f of FORM_FIELDS_DEF) {
+    if (f.required && !isFieldFilled(f)) { focusField(f); return f; }
+  }
+  return null;
 }
 // Sections stay in the DOM always (hidden via CSS, never unmounted) —
 // switching tabs must never lose in-progress input in a hidden section,
@@ -487,6 +595,7 @@ function clearFormFields(){
     const st = document.getElementById('ph-'+f.key+'-status'); if (st) st.textContent='';
   });
   hasUnsavedChanges = false;
+  updateProgress();
 }
 function collectDraft(){
   const data = {};
@@ -512,6 +621,7 @@ function applyAppToFields(a){
     }
     const el = document.getElementById('f-'+f.key); if (el) el.value = val==null ? '' : val;
   });
+  updateProgress();
 }
 
 const payApi = async (action, payload={}) => {
@@ -528,14 +638,34 @@ const AUTOSAVE_DELAY_MS = 900;
 // Event delegation on #fill-sections -- fields are built at runtime by
 // renderFillForm(), so a single listener on the container (attached once,
 // here) covers every current and future field instead of one per input.
-document.getElementById('fill-sections').addEventListener('input', scheduleAutosave);
+document.getElementById('fill-sections').addEventListener('input', (e)=>{
+  scheduleAutosave();
+  updateProgress();
+  if (e.target && e.target.classList) e.target.classList.remove('field-err');
+});
+// Soft validation on blur: highlights an empty required field the moment
+// the applicant leaves it, instead of waiting for a failed submit.
+document.getElementById('fill-sections').addEventListener('focusout', (e)=>{
+  const el = e.target;
+  if (!el.id || !el.id.startsWith('f-')) return;
+  const f = FORM_FIELDS_DEF.find(x=>x.key===el.id.slice(2));
+  if (!f || !f.required) return;
+  el.classList.toggle('field-err', !isFieldFilled(f));
+});
 function scheduleAutosave(){
   if (!currentApp || currentApp.stage !== 'initiated') return;
   hasUnsavedChanges = true;
+  setSaveStatus('saving', 'Unsaved changes…');
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(()=>{ saveTimer = null; saveProgress(true); }, AUTOSAVE_DELAY_MS);
 }
 window.addEventListener('beforeunload', e=>{ if (hasUnsavedChanges){ e.preventDefault(); e.returnValue=''; } });
+function setSaveStatus(state, text){
+  const pill = document.getElementById('save-status'), txt = document.getElementById('save-status-text');
+  if (!pill || !txt) return;
+  pill.className = 'save-status' + (state ? ' '+state : '');
+  txt.textContent = text;
+}
 
 function gotoStep(n){
   document.getElementById('step-select').classList.toggle('hidden', n!==1);
@@ -589,6 +719,7 @@ async function initiateApp(){
   document.getElementById('submit-result').innerHTML = ticketHtml(currentApp);
   document.getElementById('combo-bar').innerHTML = comboChips(currentApp);
   clearFormFields();
+  setSaveStatus('', 'Not saved yet');
   gotoStep(2);
   document.getElementById('submit-result').scrollIntoView({behavior:'smooth', block:'start'});
 }
@@ -602,14 +733,17 @@ async function saveProgress(silent=false){
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
   const note = document.getElementById('save-note');
   if (!silent) note.textContent = 'Saving…';
+  setSaveStatus('saving', 'Saving…');
   if (saveInFlight) { try { await saveInFlight; } catch(e){} }
   const task = api('saveDraft', { id: currentApp.id, data: collectDraft() });
   saveInFlight = task;
   const r = await task;
   if (saveInFlight === task) saveInFlight = null;
-  if (r.error) { if(!silent) msg(r.error); return false; }
+  if (r.error) { if(!silent) msg(r.error); setSaveStatus('err', 'Could not save — will retry'); return false; }
   hasUnsavedChanges = false;
-  note.textContent = 'Saved ' + new Date().toLocaleTimeString();
+  const when = new Date().toLocaleTimeString();
+  note.textContent = 'Saved ' + when;
+  setSaveStatus('saved', 'Saved ' + when);
   return true;
 }
 
@@ -617,6 +751,8 @@ async function saveProgress(silent=false){
 async function submitFinalApp(e){
   e.preventDefault();
   if (!currentApp) return;
+  const missing = validateFormFields();
+  if (missing) return msg(`Please fill in "${missing.label}" before submitting — jumped you to it.`);
   if (!confirm('Submit this application? You will not be able to edit it afterwards.')) return;
   const btn = document.getElementById('submit-btn'); btn.disabled = true; btn.textContent = 'Submitting…';
   const ok = await saveProgress(true);
@@ -698,6 +834,7 @@ function resumeApp(a){
   if (a.stage === 'initiated') {
     applyAppToFields(a);
     hasUnsavedChanges = false;
+    setSaveStatus('saved', 'Draft loaded — saves automatically as you type');
     document.getElementById('submit-result').innerHTML = ticketHtml(a);
     document.getElementById('combo-bar').innerHTML = comboChips(a);
     gotoStep(2);
