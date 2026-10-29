@@ -260,11 +260,16 @@ export async function POST(req) {
       classes = allClasses;
       allClasses.forEach(c => { byClass[c] = { versions: ['Bangla', 'English'], categories: allCategories, seats: '' }; });
     }
+    // The session an applicant can pick is the circular's own configured
+    // session, never today's calendar year — a circular opened in one year
+    // is routinely for the next intake year. Only fall back to "this year /
+    // next year" when no circular session has been set up yet at all.
     const year = new Date().getFullYear();
+    const sessions = circ.session ? [String(circ.session)] : [String(year), String(year + 1)];
     return NextResponse.json({
       classes, byClass,
       categories: allCategories,
-      sessions: [String(year), String(year + 1)],
+      sessions,
       open: openClasses.length > 0,
       circularTitle: circ.title || '',
       circularSession: circ.session || '',
