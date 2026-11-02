@@ -13,8 +13,14 @@
 </head>
 <body>
 <div class="msg" id="status">Preparing your document…</div>
-<script src="/print-templates.js"></script>
-<script src="/form-designer.js"></script>
+<!-- Loaded from ccpc-acr (ccpc-teachers) rather than a local copy: the two
+     apps used to maintain separate forks of this rendering code and drifted
+     out of sync (different field labels/layout for the same application).
+     ccpc-acr's Admission Admin is now the single place these templates are
+     edited; this app only ever renders from its shared admission_settings
+     data, through this one canonical script. -->
+<script src="https://ccpc-acr.vercel.app/admission-print-templates.js"></script>
+<script src="https://ccpc-acr.vercel.app/admission-form-designer.js"></script>
 <script>
 // Renders the paid applicant's application form, or the issued admit card,
 // straight into this tab (then the print dialog opens). Access is enforced
