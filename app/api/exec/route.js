@@ -188,6 +188,25 @@ export async function POST(req) {
   try { body = await req.json(); } catch { return NextResponse.json({ error: 'Bad request' }, { status: 400 }); }
   const { action, payload = {}, token } = body;
 
+  // ── Public verification (QR on a printed Application Form / Admit Card) ──
+  // Deliberately exempt from the token gate below: anyone who scans the QR
+  // printed on a form/admit card — an exam invigilator, a parent, the
+  // college itself — needs to confirm it's genuine without logging in.
+  // Only non-sensitive fields are returned (no contact numbers, NID,
+  // addresses, income, etc.) — same safe column list as lookupByCode.
+  if (action === 'publicVerify') {
+    const code = String(payload.code || '').trim();
+    if (!code) return NextResponse.json({ error: 'No code provided.' });
+    const cols = 'tracking_id,index_id,name_english,name_bangla,class,category,version,session,status,student_photo';
+    let rows = await sb(`admission_applications?tracking_id=eq.${encodeURIComponent(code)}&select=${cols}`);
+    if (!Array.isArray(rows) || !rows.length) {
+      rows = await sb(`admission_applications?index_id=eq.${encodeURIComponent(code)}&select=${cols}`);
+    }
+    const app = (Array.isArray(rows) && rows[0]) ? rows[0] : null;
+    if (!app) return NextResponse.json({ verified: false, error: `No application matches "${code}".` });
+    return NextResponse.json({ verified: true, application: app });
+  }
+
   // ── Login ────────────────────────────────────────────────────────────────
   // Two ways in: master password (full access, as before), or teachers-portal
   // credentials for a user holding the 'Admission Admin' role.
